@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "SBT1WT9lWWKkhDRAs8h/gdBySBrqDUr3jltIGmFsJdA=",
+  "Source": "TFG_Back",
+  "BasePath": "_content/TFG_Back",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

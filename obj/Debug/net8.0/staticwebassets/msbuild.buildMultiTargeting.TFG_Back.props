@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="../build/TFG_Back.props" />
+</Project>
