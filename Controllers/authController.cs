@@ -37,7 +37,37 @@ public class AuthController : ControllerBase
 
         return Ok("Usuario registrado correctamente");
     }
+    [HttpPost("profile")]
+    public async Task<IActionResult> GetProfile([FromBody] LoginDto data)
+    {
+        Console.WriteLine($"ID: {data.Id}, Email: {data.Email}, Name: {data.Name}");
 
+        if (string.IsNullOrEmpty(data.Email) || string.IsNullOrEmpty(data.Id))
+            return BadRequest("Faltan datos");
+
+        // Buscar si ya existe
+        var result = await _client.From<Profile>()
+                                .Where(p => p.Email == data.Email)
+                                .Select("*")
+                                .Get();
+
+        var profile = result.Models.FirstOrDefault();
+
+        if (profile == null)
+        {
+            profile = new Profile
+            {
+                Id = Guid.Parse(data.Id),
+                Email = data.Email,
+                Name = data.Name,
+                Role = "student"
+            };
+
+            await _client.From<Profile>().Insert(profile);
+        }
+
+        return Ok("Bienvenido "+data.Name);
+    }
     // ---------------- LOGIN ----------------
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto request)

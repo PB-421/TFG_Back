@@ -20,6 +20,7 @@ builder.Services.AddSingleton(provider =>
 
 builder.Services.AddControllers();
 //Cuando se llama a la interfaz, sabe a que llamar
+builder.Services.AddScoped(typeof(ISupabaseService<>), typeof(SupabaseService<>));
 builder.Services.AddScoped<IGroupsAppService, GroupsAppService>();
 builder.Services.AddScoped<IRequestsAppService, RequestsAppService>();
 builder.Services.AddScoped<ISubjectsAppService, SubjectsAppService>();
