@@ -5,21 +5,21 @@ var builder = WebApplication.CreateBuilder(args);
 
 Env.Load();
 
-builder.Services.AddSingleton(provider =>
+builder.Services.AddScoped<Client>(provider =>
 {
-    var config = builder.Configuration.GetSection("Supabase");
     return new Client(
-        Environment.GetEnvironmentVariable("API_URL")!,
-        Environment.GetEnvironmentVariable("API_SUDOKEY")!,
+        Environment.GetEnvironmentVariable("DB_URL")!,
+        Environment.GetEnvironmentVariable("DB_SUDOKEY")!,
         new SupabaseOptions
         {
-            AutoConnectRealtime = false
+            AutoConnectRealtime = false,
+            AutoRefreshToken = false
         }
     );
 });
 
 builder.Services.AddControllers();
-//Cuando se llama a la interfaz, sabe a que llamar
+
 builder.Services.AddScoped(typeof(ISupabaseService<>), typeof(SupabaseService<>));
 builder.Services.AddScoped<IGroupsAppService, GroupsAppService>();
 builder.Services.AddScoped<IRequestsAppService, RequestsAppService>();
@@ -27,15 +27,16 @@ builder.Services.AddScoped<ISubjectsAppService, SubjectsAppService>();
 builder.Services.AddScoped<ILocationsAppService, LocationsAppService>();
 builder.Services.AddScoped<ISchedulesAppService, SchedulesAppService>();
 
-// CONFIGURAR CORS
+// ✅ CORS CORRECTO PARA COOKIES
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("Frontend", policy =>
     {
         policy
-            .AllowAnyOrigin()
+            .WithOrigins("http://localhost:5173") // tu frontend real
+            .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowAnyHeader();
+            .AllowCredentials();
     });
 });
 
@@ -44,8 +45,10 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+app.UseCors("Frontend"); // 👈 antes de MapControllers
+
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseCors("AllowAll");
+
 app.MapControllers();
 app.Run();

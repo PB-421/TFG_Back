@@ -1,5 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Supabase;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using DotNetEnv;
 
 [ApiController]
 [Route("api/auth")]
@@ -37,6 +41,8 @@ public class AuthController : ControllerBase
 
         return Ok("Usuario registrado correctamente");
     }
+
+    // ---------------- LOGIN MICROSOFT ----------------
     [HttpPost("profile")]
     public async Task<IActionResult> GetProfile([FromBody] LoginDto data)
     {
@@ -59,14 +65,17 @@ public class AuthController : ControllerBase
             {
                 Id = Guid.Parse(data.Id),
                 Email = data.Email,
-                Name = data.Name,
+                Name = data.Name!,
                 Role = "student"
             };
 
             await _client.From<Profile>().Insert(profile);
         }
 
-        return Ok("Bienvenido "+data.Name);
+        return Ok(new { 
+        name = profile.Name, 
+        role = profile.Role 
+        });
     }
     // ---------------- LOGIN ----------------
     [HttpPost("login")]
@@ -87,7 +96,7 @@ public class AuthController : ControllerBase
 
         return Ok(new
         {
-            Message = $"Bienvenido {result.Name}",
+            Message = $"Bienvenido {result!.Name}",
             result.Name,
             result.Role
         });
@@ -97,38 +106,63 @@ public class AuthController : ControllerBase
     [HttpGet("auto-login")]
     public async Task<IActionResult> AutoLogin()
     {
-        if (!Request.Cookies.TryGetValue("sb-refresh-token", out var refreshToken))
+        var refreshToken = Request.Cookies["sb-refresh-token"];
+
+        if (string.IsNullOrEmpty(refreshToken))
             return Unauthorized("No hay sesión activa");
 
-        Request.Cookies.TryGetValue("sb-access-token", out var accessToken);
+        var http = new HttpClient();
 
-        try
+        http.DefaultRequestHeaders.Add("apikey", Environment.GetEnvironmentVariable("DB_KEY")!);
+
+        var body = new
         {
-            await _client.Auth.SetSession(accessToken!, refreshToken);
+            refresh_token = refreshToken
+        };
 
-            var user = _client.Auth.CurrentUser;
-            if (user == null)
-                return Unauthorized("Sesión inválida");
+        var content = new StringContent(
+            JsonSerializer.Serialize(body),
+            Encoding.UTF8,
+            "application/json"
+        );
+        Console.WriteLine(refreshToken);
+        var response = await http.PostAsync(
+            Environment.GetEnvironmentVariable("DB_URL")!+"/auth/v1/token?grant_type=refresh_token",
+            content
+        );
 
-            var userId = Guid.Parse(user.Id!);
+        if (!response.IsSuccessStatusCode)
+            return Unauthorized("Refresh token inválido");
 
-            var profile = await _client
-                .From<Profile>()
-                .Where(p => p.Id == userId)
-                .Single();
+        var json = await response.Content.ReadAsStringAsync();
 
-            return Ok(new
-            {
-                Message = $"Hola de nuevo {profile.Name}",
-                profile.Name,
-                profile.Role
-            });
-        }
-        catch
+        var session = JsonSerializer.Deserialize<SupabaseRefreshResponse>(
+            json,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+        );
+
+        if (session == null || session.user == null)
+            return Unauthorized("Sesión inválida");
+
+        // 🔐 Guardar nuevos tokens en cookies
+        SetAutoAuthCookies(session.access_token, session.refresh_token, session.expires_in);
+
+        // Obtener perfil
+        var userId = Guid.Parse(session.user.id);
+
+        var result = await _client
+            .From<Profile>()
+            .Where(p => p.Id == userId)
+            .Single();
+
+        return Ok(new
         {
-            return Unauthorized("Sesión expirada");
-        }
+            Message = $"Hola de nuevo {result!.Name}",
+            result.Name,
+            result.Role
+        });
     }
+
 
     // ---------------- LOGOUT ----------------
     [HttpGet("logout")]
@@ -145,15 +179,18 @@ public class AuthController : ControllerBase
     // ---------------- HELPERS ----------------
     private void SetAuthCookies(Supabase.Gotrue.Session session)
     {
+        var accessExp = DateTimeOffset.UtcNow.AddSeconds(5);
+        var refreshExp = DateTimeOffset.UtcNow.AddDays(30);
+
         Response.Cookies.Append(
             "sb-access-token",
-            session.AccessToken!,
+            session.AccessToken!,   // <-- añadimos fecha
             new CookieOptions
             {
                 HttpOnly = true,
-                Secure = false, // true en producción
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTimeOffset.UtcNow.AddSeconds(session.ExpiresIn)
+                Secure = false,
+                SameSite = SameSiteMode.Lax,
+                Expires = accessExp
             });
 
         Response.Cookies.Append(
@@ -163,8 +200,37 @@ public class AuthController : ControllerBase
             {
                 HttpOnly = true,
                 Secure = false,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTimeOffset.UtcNow.AddDays(30)
+                SameSite = SameSiteMode.Lax,
+                Expires = refreshExp
             });
     }
+
+    private void SetAutoAuthCookies(string accessToken, string refreshToken, int expiresIn)
+    {
+        var accessExp = DateTimeOffset.UtcNow.AddSeconds(expiresIn);
+        var refreshExp = DateTimeOffset.UtcNow.AddDays(30);
+
+        Response.Cookies.Append(
+            "sb-access-token",
+            accessToken,
+            new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = false,
+                SameSite = SameSiteMode.Lax, //Cambiar a None y true en prod
+                Expires = accessExp
+            });
+
+        Response.Cookies.Append(
+            "sb-refresh-token",
+            refreshToken,
+            new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = false,
+                SameSite = SameSiteMode.Lax,
+                Expires = refreshExp
+            });
+    }
+
 }
