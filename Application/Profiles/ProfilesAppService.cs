@@ -1,10 +1,13 @@
 using Supabase;
+using Supabase.Gotrue;
+using System.Text;
+using System.Text.Json;
 
 public class ProfilesAppService : IProfilesAppService
 {
-    private readonly Client _client;
+    private readonly Supabase.Client _client;
 
-    public ProfilesAppService(Client client)
+    public ProfilesAppService(Supabase.Client client)
     {
         _client = client;
     }
@@ -17,14 +20,46 @@ public class ProfilesAppService : IProfilesAppService
 
         try
         {
-            await _client.Auth.SetSession(string.Empty, refreshToken, true);
-            var session = await _client.Auth.RefreshSession();
+            var http = new HttpClient();
 
-            if (session?.User == null)
+            http.DefaultRequestHeaders.Add(
+                "apikey",
+                Environment.GetEnvironmentVariable("DB_KEY")!
+            );
+
+            var body = new
+            {
+                refresh_token = refreshToken
+            };
+
+            var content = new StringContent(
+                JsonSerializer.Serialize(body),
+                Encoding.UTF8,
+                "application/json"
+            );
+
+            var response = await http.PostAsync(
+                Environment.GetEnvironmentVariable("DB_URL") +
+                "/auth/v1/token?grant_type=refresh_token",
+                content
+            );
+
+            if (!response.IsSuccessStatusCode)
                 return null;
 
-            if (!Guid.TryParse(session.User.Id, out var userId))
+            var json = await response.Content.ReadAsStringAsync();
+
+            var session = JsonSerializer.Deserialize<SupabaseRefreshResponse>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            );
+
+            if (session == null || session.user == null)
                 return null;
+
+            var userId = Guid.Parse(session.user.id);
+
+            Console.WriteLine(userId);
 
             return await _client
                 .From<Profile>()
@@ -40,20 +75,65 @@ public class ProfilesAppService : IProfilesAppService
     // 👑 Obtener todos los perfiles (solo admin)
     public async Task<List<Profile>> GetAllProfilesAsync(string refreshToken)
     {
-        var currentUser = await GetCurrentUserProfileAsync(refreshToken);
+        try
+        {
+            var http = new HttpClient();
 
-        if (currentUser == null)
-            throw new UnauthorizedAccessException("No autenticado");
+            http.DefaultRequestHeaders.Add(
+                "apikey",
+                Environment.GetEnvironmentVariable("DB_KEY")!
+            );
 
-        if (currentUser.Role != "admin")
-            throw new UnauthorizedAccessException("No autorizado");
+            var body = new
+            {
+                refresh_token = refreshToken
+            };
 
-        var result = await _client
+            var content = new StringContent(
+                JsonSerializer.Serialize(body),
+                Encoding.UTF8,
+                "application/json"
+            );
+
+            var response = await http.PostAsync(
+                Environment.GetEnvironmentVariable("DB_URL") +
+                "/auth/v1/token?grant_type=refresh_token",
+                content
+            );
+
+            if (!response.IsSuccessStatusCode)
+                return [];
+
+            var json = await response.Content.ReadAsStringAsync();
+
+            var session = JsonSerializer.Deserialize<SupabaseRefreshResponse>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            );
+
+            if (session == null || session.user == null)
+                return [];
+
+            var userId = Guid.Parse(session.user.id);
+
+            var profile = await _client
+            .From<Profile>()
+            .Where(p => p.Id == userId)
+            .Single();
+
+            if(profile!.Role != "admin") return [];
+
+            var result = await _client
             .From<Profile>()
             .Select("*")
             .Get();
 
-        return result.Models;
+            return result.Models;
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     public async Task<List<Profile>> GetAllProfilesInternaly()
