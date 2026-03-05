@@ -1,12 +1,12 @@
 public class GroupsAppService : IGroupsAppService
 {
     private readonly ISupabaseService<Group> _repository;
-    private readonly ISupabaseService<Profile> _userRepo;
+    private readonly IProfilesAppService _userRepo;
     private readonly ISchedulesAppService _schedulesRepo;
     
 
 
-    public GroupsAppService(ISupabaseService<Group> repository, ISupabaseService<Profile> userRepo, ISchedulesAppService schedulesRepo)
+    public GroupsAppService(ISupabaseService<Group> repository, IProfilesAppService userRepo, ISchedulesAppService schedulesRepo)
     {
         _repository = repository;
         _userRepo = userRepo;
@@ -39,7 +39,7 @@ public class GroupsAppService : IGroupsAppService
             return (false, "No hay grupos para esta asignatura");
 
         // 2️⃣ Obtener alumnos matriculados en la asignatura
-        var allStudents = (await _userRepo.GetAllAsync())
+        var allStudents = (await _userRepo.GetAllProfilesInternaly())
             .Where(p => p.Role == "student" && p.Subjects.Contains(subjectId))
             .Select(p => p.Id)
             .ToList();

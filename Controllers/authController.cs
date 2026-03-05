@@ -1,104 +1,44 @@
 using Microsoft.AspNetCore.Mvc;
-using Supabase;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
-using DotNetEnv;
 
 [ApiController]
 [Route("api/auth")]
 public class AuthController : ControllerBase
 {
-    private readonly Client _client;
+    private readonly IAuthAppService _authService;
 
-    public AuthController(Client client)
+    public AuthController(IAuthAppService authService)
     {
-        _client = client;
+        _authService = authService;
     }
 
     // ---------------- REGISTER ----------------
     [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] LoginDto request)
+    public async Task<IActionResult> Register(LoginDto request)
     {
-        if (string.IsNullOrWhiteSpace(request.Email) ||
-            string.IsNullOrWhiteSpace(request.Password))
-            return BadRequest("Email y password son requeridos");
+        var (session, error) = await _authService.RegisterAsync(request);
 
-        var session = await _client.Auth.SignUp(request.Email, request.Password);
-
-        if (session?.User == null)
-            return BadRequest("No se pudo crear el usuario");
-
-        var profile = new Profile
-        {
-            Id = Guid.Parse(session.User.Id!),
-            Email = request.Email,
-            Name = request.Name ?? "",
-            Role = "student"
-        };
-
-        await _client.From<Profile>().Insert(profile);
+        if (error != null)
+            return BadRequest(error);
 
         return Ok("Usuario registrado correctamente");
     }
 
-    // ---------------- LOGIN MICROSOFT ----------------
-    [HttpPost("profile")]
-    public async Task<IActionResult> GetProfile([FromBody] LoginDto data)
-    {
-        Console.WriteLine($"ID: {data.Id}, Email: {data.Email}, Name: {data.Name}");
-
-        if (string.IsNullOrEmpty(data.Email) || string.IsNullOrEmpty(data.Id))
-            return BadRequest("Faltan datos");
-
-        // Buscar si ya existe
-        var result = await _client.From<Profile>()
-                                .Where(p => p.Email == data.Email)
-                                .Select("*")
-                                .Get();
-
-        var profile = result.Models.FirstOrDefault();
-
-        if (profile == null)
-        {
-            profile = new Profile
-            {
-                Id = Guid.Parse(data.Id),
-                Email = data.Email,
-                Name = data.Name!,
-                Role = "student"
-            };
-
-            await _client.From<Profile>().Insert(profile);
-        }
-
-        return Ok(new { 
-        name = profile.Name, 
-        role = profile.Role 
-        });
-    }
     // ---------------- LOGIN ----------------
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginDto request)
+    public async Task<IActionResult> Login(LoginDto request)
     {
-        var session = await _client.Auth.SignIn(request.Email, request.Password);
-        if (session == null)
-            return Unauthorized("Credenciales incorrectas");
+        var (session, profile, error) = await _authService.LoginAsync(request);
 
-        SetAuthCookies(session);
+        if (error != null)
+            return Unauthorized(error);
 
-        var userId = Guid.Parse(session.User!.Id!);
-
-        var result = await _client
-            .From<Profile>()
-            .Where(p => p.Id == userId)
-            .Single();
+        SetAuthCookies(session!);
 
         return Ok(new
         {
-            Message = $"Bienvenido {result!.Name}",
-            result.Name,
-            result.Role
+            Message = $"Bienvenido {profile!.Name}",
+            profile.Name,
+            profile.Role
         });
     }
 
@@ -108,67 +48,44 @@ public class AuthController : ControllerBase
     {
         var refreshToken = Request.Cookies["sb-refresh-token"];
 
-        if (string.IsNullOrEmpty(refreshToken))
-            return Unauthorized("No hay sesión activa");
+        var result = await _authService.RefreshSessionAsync(refreshToken!);
 
-        var http = new HttpClient();
+        if (result == null)
+            return Unauthorized("Sesión expirada");
 
-        http.DefaultRequestHeaders.Add("apikey", Environment.GetEnvironmentVariable("DB_KEY")!);
+        var (accessToken, newRefreshToken, expiresIn, profile) = result.Value;
 
-        var body = new
-        {
-            refresh_token = refreshToken
-        };
-
-        var content = new StringContent(
-            JsonSerializer.Serialize(body),
-            Encoding.UTF8,
-            "application/json"
-        );
-        Console.WriteLine(refreshToken);
-        var response = await http.PostAsync(
-            Environment.GetEnvironmentVariable("DB_URL")!+"/auth/v1/token?grant_type=refresh_token",
-            content
-        );
-
-        if (!response.IsSuccessStatusCode)
-            return Unauthorized("Refresh token inválido");
-
-        var json = await response.Content.ReadAsStringAsync();
-
-        var session = JsonSerializer.Deserialize<SupabaseRefreshResponse>(
-            json,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
-        );
-
-        if (session == null || session.user == null)
-            return Unauthorized("Sesión inválida");
-
-        // 🔐 Guardar nuevos tokens en cookies
-        SetAutoAuthCookies(session.access_token, session.refresh_token, session.expires_in);
-
-        // Obtener perfil
-        var userId = Guid.Parse(session.user.id);
-
-        var result = await _client
-            .From<Profile>()
-            .Where(p => p.Id == userId)
-            .Single();
+        SetAutoAuthCookies(accessToken, newRefreshToken, expiresIn);
 
         return Ok(new
         {
-            Message = $"Hola de nuevo {result!.Name}",
-            result.Name,
-            result.Role
+            Message = $"Hola de nuevo {profile!.Name}",
+            profile.Name,
+            profile.Role
         });
     }
 
+    // ---------------- OAUTH PROFILE ----------------
+    [HttpPost("profile")]
+    public async Task<IActionResult> Profile(LoginDto data)
+    {
+        var profile = await _authService.GetOrCreateOAuthProfile(data);
+
+        if (profile == null)
+            return BadRequest();
+
+        return Ok(new
+        {
+            name = profile.Name,
+            role = profile.Role
+        });
+    }
 
     // ---------------- LOGOUT ----------------
     [HttpGet("logout")]
     public async Task<IActionResult> Logout()
     {
-        await _client.Auth.SignOut();
+        await _authService.LogoutAsync();
 
         Response.Cookies.Delete("sb-access-token");
         Response.Cookies.Delete("sb-refresh-token");
