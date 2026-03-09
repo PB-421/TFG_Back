@@ -6,15 +6,28 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthAppService _authService;
 
-    public AuthController(IAuthAppService authService)
+    private readonly IProfilesAppService _profileService;
+
+    public AuthController(IAuthAppService authService, IProfilesAppService profilesService)
     {
         _authService = authService;
+        _profileService = profilesService;
     }
 
     // ---------------- REGISTER ----------------
     [HttpPost("register")]
     public async Task<IActionResult> Register(LoginDto request)
     {
+        var refreshToken = Request.Cookies["sb-refresh-token"];
+
+        if (string.IsNullOrEmpty(refreshToken))
+            return Unauthorized("Usuario no autorizado");
+
+        var currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
+
+        if (currentUser == null || currentUser.Role != "admin")
+            return Unauthorized("Usuario no autorizado");
+        
         var (session, error) = await _authService.RegisterAsync(request);
 
         if (error != null)
@@ -91,6 +104,27 @@ public class AuthController : ControllerBase
         Response.Cookies.Delete("sb-refresh-token");
 
         return Ok("Logout OK");
+    }
+
+    [HttpDelete("delete/{id}")]
+    public async Task<IActionResult> DeleteUser(Guid id)
+    {
+        var refreshToken = Request.Cookies["sb-refresh-token"];
+
+        if (string.IsNullOrEmpty(refreshToken))
+            return Unauthorized("Usuario no autorizado");
+
+        var currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
+
+        if (currentUser == null || currentUser.Role != "admin")
+            return Unauthorized("Usuario no autorizado");
+
+        var result = await _authService.DeleteUserAsync(id);
+
+        if (!result)
+            return BadRequest("No se pudo eliminar el usuario");
+
+        return Ok("Usuario eliminado");
     }
 
     // ---------------- HELPERS ----------------

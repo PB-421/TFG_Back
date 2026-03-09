@@ -6,10 +6,11 @@ public interface IAuthAppService
 
     Task<(Session?, Profile?, string?)> LoginAsync(LoginDto request);
 
-    Task<(string accessToken, string refreshToken, int expiresIn, Profile?)?> 
-        RefreshSessionAsync(string refreshToken);
+    Task<(string accessToken, string refreshToken, int expiresIn, Profile?)?> RefreshSessionAsync(string refreshToken);
 
     Task<Profile?> GetOrCreateOAuthProfile(LoginDto data);
 
     Task LogoutAsync();
+
+    Task<bool> DeleteUserAsync(Guid userId);
 }

@@ -29,7 +29,7 @@ public class AuthAppService : IAuthAppService
             Id = Guid.Parse(session.User.Id!),
             Email = request.Email,
             Name = request.Name ?? "",
-            Role = "student"
+            Role = request.Role ?? "student"
         };
 
         await _client.From<Profile>().Insert(profile);
@@ -148,5 +148,36 @@ public class AuthAppService : IAuthAppService
     public async Task LogoutAsync()
     {
         await _client.Auth.SignOut();
+    }
+
+    // ---------------- DELETE USER ----------------
+    public async Task<bool> DeleteUserAsync(Guid userId)
+    {
+        try
+        {
+            var http = new HttpClient();
+
+            http.DefaultRequestHeaders.Add(
+                "apikey",
+                Environment.GetEnvironmentVariable("DB_SUDOKEY")!
+            );
+
+            http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue(
+                    "Bearer",
+                    Environment.GetEnvironmentVariable("DB_SUDOKEY")
+                );
+
+            var response = await http.DeleteAsync(
+                Environment.GetEnvironmentVariable("DB_URL") +
+                $"/auth/v1/admin/users/{userId}"
+            );
+
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

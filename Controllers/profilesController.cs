@@ -39,4 +39,22 @@ public class ProfilesController : ControllerBase
             return Forbid(ex.Message);
         }
     }
+
+    // ---------------- UPDATE USER----------------
+    [HttpPut("UpdateUser/{id}")]
+    public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateDto dto)
+    {
+        var refreshToken = Request.Cookies["sb-refresh-token"];
+
+        if (string.IsNullOrEmpty(refreshToken))
+            return Unauthorized("Usuario no autorizado");
+
+        var result = await _profilesService
+            .UpdateUserAsync(id, dto.Role, dto.Name, refreshToken);
+
+        if (!result)
+            return BadRequest("No hubo cambios o no autorizado");
+
+        return Ok("Usuario actualizado");
+    }
 }

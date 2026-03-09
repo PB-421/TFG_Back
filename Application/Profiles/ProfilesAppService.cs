@@ -145,4 +145,54 @@ public class ProfilesAppService : IProfilesAppService
 
         return result.Models;
     }
+
+    // ---------------- CHANGE ROLE ----------------
+    public async Task<bool> UpdateUserAsync(Guid userId, string? newRole, string? newName, string refreshToken)
+    {
+        try
+        {
+            var currentUser = await GetCurrentUserProfileAsync(refreshToken);
+
+            if (currentUser == null || currentUser.Role != "admin")
+                return false;
+
+            var profile = await _client
+                .From<Profile>()
+                .Where(p => p.Id == userId)
+                .Single();
+
+            if (profile == null)
+                return false;
+
+            bool hasChanges = false;
+
+            // comprobar role
+            if (!string.IsNullOrWhiteSpace(newRole) && profile.Role != newRole)
+            {
+                profile.Role = newRole;
+                hasChanges = true;
+            }
+
+            // comprobar name
+            if (!string.IsNullOrWhiteSpace(newName) && profile.Name != newName)
+            {
+                profile.Name = newName;
+                hasChanges = true;
+            }
+
+            // si no hay cambios, no actualizar
+            if (!hasChanges)
+                return false;
+
+            await _client
+                .From<Profile>()
+                .Update(profile);
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }
