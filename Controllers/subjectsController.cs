@@ -13,31 +13,40 @@ public class SubjectsController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> GetAll()
-        => Ok(await _appService.GetAllAsync());
-
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(Guid id)
     {
-        var subject = await _appService.GetByIdAsync(id);
-        return subject == null ? NotFound() : Ok(subject);
+        var listSubjects = await _appService.GetAllAsync();
+    
+        var dtoList = listSubjects.Select(s => new SubjectDto 
+        { 
+            Id = s.Id, 
+            Name = s.Name 
+        }).ToList();
+
+        return Ok(dtoList);
     }
 
+
     [HttpPost]
-    public async Task<IActionResult> Create(Subject subject)
-        => Ok(await _appService.CreateAsync(subject));
+    public async Task<IActionResult> Create(SubjectDto subject)
+    {
+        var createdSubject = await _appService.CreateAsync(subject);
+        if(!createdSubject) return BadRequest("Error al crear la asignatura");
+        return Ok("Asignatura Creada"); 
+    }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(Guid id, Subject subject)
+    public async Task<IActionResult> Update(SubjectDto subject)
     {
-        if (id != subject.Id) return BadRequest();
-        await _appService.UpdateAsync(subject);
-        return NoContent();
+        var updatedSubject = await _appService.UpdateAsync(subject);
+        if(!updatedSubject)  return BadRequest("Error al actualizar la asignatura");
+        return Ok("Asignatura actualizada");
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        await _appService.DeleteAsync(id);
-        return NoContent();
+        var deletedSubject = await _appService.DeleteAsync(id);
+        if(!deletedSubject)  return BadRequest("Error al borrar la asignatura");
+        return Ok("Asignatura borrada");
     }
 }

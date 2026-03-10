@@ -5,8 +5,9 @@ using Supabase.Postgrest.Attributes;
 [Table("requests")]
 public class Request : BaseModel
 {
-    [PrimaryKey("id")]
-    public Guid Id { get; set; }
+    [PrimaryKey("id", false)]
+    [Column("id")]
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     [Column("student_id")]
     public Guid StudentId { get; set; }

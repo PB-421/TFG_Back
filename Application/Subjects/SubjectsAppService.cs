@@ -1,24 +1,64 @@
 public class SubjectsAppService : ISubjectsAppService
 {
-    private readonly ISupabaseService<Subject> _repository;
+    private readonly Supabase.Client _client;
 
-    public SubjectsAppService(ISupabaseService<Subject> repository)
+    public SubjectsAppService(Supabase.Client client)
     {
-        _repository = repository;
+        _client = client;
     }
 
-    public Task<IEnumerable<Subject>> GetAllAsync()
-        => _repository.GetAllAsync();
+    public async Task<List<SubjectDto>> GetAllAsync()
+    {
+        var response = await _client.From<Subject>().Select("*").Get();
+    
+        return response.Models.Select(s => new SubjectDto 
+        { 
+            Id = s.Id, 
+            Name = s.Name 
+        }).ToList();
+    }
+    public async Task<bool> CreateAsync(SubjectDto subject)
+    {
+        var newSubject = new Subject
+        {
+            Id= Guid.NewGuid(),
+            Name = subject.Name!
+        };
+        await _client.From<Subject>().Insert(newSubject);
 
-    public Task<Subject?> GetByIdAsync(Guid id)
-        => _repository.GetByIdAsync(id);
+        return true;
+    }
 
-    public Task<Subject> CreateAsync(Subject subject)
-        => _repository.CreateAsync(subject);
+    public async Task<bool> UpdateAsync(SubjectDto subject)
+    {
+        var currentSubject = await _client
+            .From<Subject>()
+            .Where(s => s.Id == subject.Id)
+            .Single();
+        
+        if (currentSubject == null)
+                return false;
+        bool hasChanges = false;
 
-    public Task UpdateAsync(Subject subject)
-        => _repository.UpdateAsync(subject);
+        if (!string.IsNullOrWhiteSpace(subject.Name) && currentSubject.Name != subject.Name)
+        {
+            currentSubject.Name = subject.Name;
+            hasChanges = true;
+        }
 
-    public Task DeleteAsync(Guid id)
-        => _repository.DeleteAsync(id);
+        if (!hasChanges)
+                return false;
+
+        await _client
+            .From<Subject>()
+            .Update(currentSubject);
+        return true;
+    }
+
+    public async Task<bool> DeleteAsync(Guid id)
+    {
+        await _client.From<Subject>().Where(s => s.Id == id).Delete();
+        return true;
+    }
+       
 }

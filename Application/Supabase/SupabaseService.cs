@@ -14,7 +14,7 @@ public class SupabaseService<T> : ISupabaseService<T>
 
     public async Task<IEnumerable<T>> GetAllAsync()
     {
-        var response = await _client.From<T>().Get();
+        var response = await _client.From<T>().Select("*").Get();
         return response.Models;
     }
 

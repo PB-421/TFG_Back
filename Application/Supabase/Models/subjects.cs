@@ -4,7 +4,8 @@ using Supabase.Postgrest.Attributes;
 [Table("subjects")]
 public class Subject : BaseModel
 {
-    [PrimaryKey("id")]
+    [PrimaryKey("id", false)]
+    [Column("id")]
     public Guid Id { get; set; }
 
     [Column("name")]

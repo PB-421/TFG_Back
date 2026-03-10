@@ -4,8 +4,9 @@ using Supabase.Postgrest.Attributes;
 [Table("groups")]
 public class Group : BaseModel
 {
-    [PrimaryKey("id")]
-    public Guid Id { get; set; }
+    [PrimaryKey("id", false)]
+    [Column("id")]
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     [Column("subject_id")]
     public Guid SubjectId { get; set; }

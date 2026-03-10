@@ -4,8 +4,9 @@ using Supabase.Postgrest.Attributes;
 [Table("schedules")]
 public class Schedule : BaseModel
 {
-    [PrimaryKey("id")]
-    public Guid Id { get; set; }
+    [PrimaryKey("id", false)]
+    [Column("id")]
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     [Column("group_id")]
     public Guid GroupId { get; set; }
