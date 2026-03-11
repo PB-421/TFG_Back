@@ -16,14 +16,18 @@ public class AuthController : ControllerBase
 
     // ---------------- REGISTER ----------------
     [HttpPost("register")]
-    public async Task<IActionResult> Register(LoginDto request)
+    public async Task<IActionResult> Register([FromBody] LoginDto request,[FromQuery] Guid adminId)
     {
         var refreshToken = Request.Cookies["sb-refresh-token"];
-
-        if (string.IsNullOrEmpty(refreshToken))
-            return Unauthorized("Usuario no autorizado");
-
-        var currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
+        if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
+            return Unauthorized();
+        var currentUser = new Profile();
+        if(!string.IsNullOrEmpty(refreshToken)){
+            currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
+        } else
+        {
+            currentUser = await _profileService.GetCurrentUserProfileAsync(adminId);
+        }
 
         if (currentUser == null || currentUser.Role != "admin")
             return Unauthorized("Usuario no autorizado");
@@ -107,15 +111,18 @@ public class AuthController : ControllerBase
     }
 
     [HttpDelete("delete/{id}")]
-    public async Task<IActionResult> DeleteUser(Guid id)
+    public async Task<IActionResult> DeleteUser(Guid id, [FromQuery] Guid adminId)
     {
         var refreshToken = Request.Cookies["sb-refresh-token"];
-
-        if (string.IsNullOrEmpty(refreshToken))
-            return Unauthorized("Usuario no autorizado");
-
-        var currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
-
+        if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
+            return Unauthorized();
+        var currentUser = new Profile();
+        if(!string.IsNullOrEmpty(refreshToken)){
+            currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
+        } else
+        {
+            currentUser = await _profileService.GetCurrentUserProfileAsync(adminId);
+        }
         if (currentUser == null || currentUser.Role != "admin")
             return Unauthorized("Usuario no autorizado");
 

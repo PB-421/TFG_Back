@@ -75,6 +75,21 @@ public class ProfilesAppService : IProfilesAppService
         }
     }
 
+    public async Task<Profile?> GetCurrentUserProfileAsync(Guid id)
+    {
+        try
+        {
+            return await _client
+                .From<Profile>()
+                .Where(p => p.Id == id)
+                .Single();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     // Obtener todos los perfiles (solo admin)
     public async Task<List<Profile>> GetAllProfilesAsync(string refreshToken)
     {
@@ -129,6 +144,31 @@ public class ProfilesAppService : IProfilesAppService
             var result = await _client
             .From<Profile>()
             .Select("*")
+            .Where(p => p.Id != userId)
+            .Get();
+
+            return result.Models;
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<List<Profile>> GetAllProfilesAsync(Guid id)
+    {
+        try
+        {
+            var profile = await _client
+            .From<Profile>()
+            .Where(p => p.Id == id)
+            .Single();
+            if(profile!.Role != "admin") return [];
+
+            var result = await _client
+            .From<Profile>()
+            .Select("*")
+            .Where(p => p.Id != profile!.Id)
             .Get();
 
             return result.Models;
@@ -182,15 +222,10 @@ public class ProfilesAppService : IProfilesAppService
     }
 
     // ---------------- UPDATE----------------
-    public async Task<bool> UpdateUserAsync(Guid userId, string? newRole, string? newName, string refreshToken)
+    public async Task<bool> UpdateUserAsync(Guid userId, string? newRole, string? newName)
     {
         try
         {
-            var currentUser = await GetCurrentUserProfileAsync(refreshToken);
-
-            if (currentUser == null || currentUser.Role != "admin")
-                return false;
-
             var profile = await _client
                 .From<Profile>()
                 .Where(p => p.Id == userId)

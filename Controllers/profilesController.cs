@@ -15,16 +15,21 @@ public class ProfilesController : ControllerBase
     }
 
     [HttpGet("GetAll")]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] Guid adminId)
     {
         var refreshToken = Request.Cookies["sb-refresh-token"];
-
-        if (string.IsNullOrEmpty(refreshToken))
+        if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
             return Unauthorized();
 
         try
         {
-            var profiles = await _profilesService.GetAllProfilesAsync(refreshToken);
+            var profiles = new List<Profile>();
+            if(!string.IsNullOrEmpty(refreshToken)){
+                profiles = await _profilesService.GetAllProfilesAsync(refreshToken!);
+            } else
+            {
+                profiles = await _profilesService.GetAllProfilesAsync(adminId);
+            }
             if (profiles == null || profiles.Count == 0) return Unauthorized();
 
             var tasks = profiles.Select(async p => new profileDto
@@ -48,15 +53,24 @@ public class ProfilesController : ControllerBase
 
     // ---------------- UPDATE USER----------------
     [HttpPut("UpdateUser/{id}")]
-    public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateDto dto)
+    public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateDto dto, [FromQuery] Guid adminId)
     {
         var refreshToken = Request.Cookies["sb-refresh-token"];
+        if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
+            return Unauthorized();
+        var currentUser = new Profile();
+        if(!string.IsNullOrEmpty(refreshToken)){
+            currentUser = await _profilesService.GetCurrentUserProfileAsync(refreshToken);
+        } else
+        {
+            currentUser = await _profilesService.GetCurrentUserProfileAsync(adminId);
+        }
 
-        if (string.IsNullOrEmpty(refreshToken))
+        if (currentUser == null || currentUser.Role != "admin")
             return Unauthorized("Usuario no autorizado");
 
         var result = await _profilesService
-            .UpdateUserAsync(id, dto.Role, dto.Name, refreshToken);
+            .UpdateUserAsync(id, dto.Role, dto.Name);
 
         if (!result)
             return BadRequest("No hubo cambios o no autorizado");
