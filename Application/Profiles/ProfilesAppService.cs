@@ -7,9 +7,12 @@ public class ProfilesAppService : IProfilesAppService
 {
     private readonly Supabase.Client _client;
 
-    public ProfilesAppService(Supabase.Client client)
+    private readonly ISubjectsAppService _subjectsService;
+
+    public ProfilesAppService(Supabase.Client client, ISubjectsAppService subjectService)
     {
         _client = client;
+        _subjectsService = subjectService;
     }
 
     // 🔐 Obtener usuario actual desde refreshToken
@@ -72,7 +75,7 @@ public class ProfilesAppService : IProfilesAppService
         }
     }
 
-    // 👑 Obtener todos los perfiles (solo admin)
+    // Obtener todos los perfiles (solo admin)
     public async Task<List<Profile>> GetAllProfilesAsync(string refreshToken)
     {
         try
@@ -136,17 +139,49 @@ public class ProfilesAppService : IProfilesAppService
         }
     }
 
-    public async Task<List<Profile>> GetAllProfilesInternaly()
+    public async Task<List<profileDto>> GetAllProfilesInternaly()
     {
         var result = await _client
             .From<Profile>()
             .Select("*")
             .Get();
+        
+        var tasks = result.Models.Select(async p => new profileDto
+            {
+                Id = p.Id,
+                Email = p.Email,
+                Name = p.Name,
+                Role = p.Role,
+                Subjects = await _subjectsService.GetNamesByIds(p.Subjects)
+            });
 
-        return result.Models;
+            var dtoList = await Task.WhenAll(tasks);
+
+            return dtoList.ToList();
+
     }
 
-    // ---------------- CHANGE ROLE ----------------
+    public async Task<profileDto?> GetProfileById(Guid id)
+    {
+        var result = await _client
+            .From<Profile>()
+            .Select("*")
+            .Where(p => p.Id == id)
+            .Single();
+        if(result == null) return null;
+        var profile = new profileDto
+        {
+            Id = result.Id,
+            Email = result.Email,
+            Name = result.Name,
+            Role = result.Role,
+            Subjects = await _subjectsService.GetNamesByIds(result.Subjects)
+        };
+
+        return profile;
+    }
+
+    // ---------------- UPDATE----------------
     public async Task<bool> UpdateUserAsync(Guid userId, string? newRole, string? newName, string refreshToken)
     {
         try

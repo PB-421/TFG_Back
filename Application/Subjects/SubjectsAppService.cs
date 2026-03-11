@@ -17,6 +17,23 @@ public class SubjectsAppService : ISubjectsAppService
             Name = s.Name 
         }).ToList();
     }
+
+    public async Task<List<SubjectDto>> GetNamesByIds(List<Guid> ids)
+    {
+        if (ids == null || !ids.Any()) return new List<SubjectDto>();
+
+        var response = await _client.From<Subject>()
+            .Where(s => ids.Contains(s.Id))
+            .Get();
+
+        return response.Models
+        .Select(s => new SubjectDto 
+        { 
+            Id = s.Id, 
+            Name = s.Name 
+        })
+        .ToList();
+    }
     public async Task<bool> CreateAsync(SubjectDto subject)
     {
         var newSubject = new Subject

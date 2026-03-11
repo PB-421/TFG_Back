@@ -40,7 +40,7 @@ public class GroupsAppService : IGroupsAppService
 
         // 2️⃣ Obtener alumnos matriculados en la asignatura
         var allStudents = (await _userRepo.GetAllProfilesInternaly())
-            .Where(p => p.Role == "student" && p.Subjects.Contains(subjectId))
+            .Where(p => p.Role == "student" && p.Subjects.Any(s => s.Id == subjectId))
             .Select(p => p.Id)
             .ToList();
 

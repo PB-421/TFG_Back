@@ -6,9 +6,12 @@ public class ProfilesController : ControllerBase
 {
     private readonly IProfilesAppService _profilesService;
 
-    public ProfilesController(IProfilesAppService profilesService)
+    private readonly ISubjectsAppService _subjectsService;
+
+    public ProfilesController(IProfilesAppService profilesService, ISubjectsAppService subjectsService)
     {
         _profilesService = profilesService;
+        _subjectsService = subjectsService;
     }
 
     [HttpGet("GetAll")]
@@ -21,17 +24,20 @@ public class ProfilesController : ControllerBase
 
         try
         {
-            var profiles = await _profilesService
-                .GetAllProfilesAsync(refreshToken);
-            if(profiles.Count == 0) return Unauthorized();
-            var dtoList = profiles.Select(p => new profileDto
+            var profiles = await _profilesService.GetAllProfilesAsync(refreshToken);
+            if (profiles == null || profiles.Count == 0) return Unauthorized();
+
+            var tasks = profiles.Select(async p => new profileDto
             {
                 Id = p.Id,
                 Email = p.Email,
                 Name = p.Name,
                 Role = p.Role,
-                Subjects = p.Subjects.ToArray()
-            }).ToList();
+                Subjects = await _subjectsService.GetNamesByIds(p.Subjects)
+            });
+
+            var dtoList = await Task.WhenAll(tasks);
+
             return Ok(dtoList);
         }
         catch (UnauthorizedAccessException ex)
