@@ -11,33 +11,37 @@ public class GroupsController : ControllerBase
         _appService = appService;
     }
 
-    [HttpGet]
+   [HttpGet]
     public async Task<IActionResult> GetAll()
-        => Ok(await _appService.GetAllAsync());
-
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(Guid id)
     {
-        var group = await _appService.GetByIdAsync(id);
-        return group == null ? NotFound() : Ok(group);
+        var groups = await _appService.GetAllAsync();
+        return Ok(groups);
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(Group group)
-        => Ok(await _appService.CreateAsync(group));
+    public async Task<IActionResult> Create([FromBody] GroupsDto dto)
+    {
+        var success = await _appService.CreateAsync(dto);
+        if (!success) return BadRequest("No se pudo crear el grupo.");
+        
+        return Ok("Grupo Creado");
+    }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(Guid id, Group group)
+    public async Task<IActionResult> Update(Guid id, [FromBody] GroupsDto dto)
     {
-        if (id != group.Id) return BadRequest();
-        await _appService.UpdateAsync(group);
-        return NoContent();
+        var success = await _appService.UpdateAsync(id, dto);
+        if (!success) return BadRequest("Grupo no actualizado");
+        
+        return Ok("Grupo actualizado");
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        await _appService.DeleteAsync(id);
+        var success = await _appService.DeleteAsync(id);
+        if (!success) return NotFound();
+        
         return NoContent();
     }
 }

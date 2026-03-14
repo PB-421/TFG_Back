@@ -1,118 +1,229 @@
+using Supabase;
+
 public class GroupsAppService : IGroupsAppService
 {
-    private readonly ISupabaseService<Group> _repository;
+    private readonly Client _client;
     private readonly IProfilesAppService _userRepo;
     private readonly ISchedulesAppService _schedulesRepo;
-    
 
-
-    public GroupsAppService(ISupabaseService<Group> repository, IProfilesAppService userRepo, ISchedulesAppService schedulesRepo)
+    public GroupsAppService(Client client, IProfilesAppService userRepo, ISchedulesAppService schedulesRepo)
     {
-        _repository = repository;
+        _client = client;
         _userRepo = userRepo;
         _schedulesRepo = schedulesRepo;
     }
 
-    public Task<IEnumerable<Group>> GetAllAsync()
-        => _repository.GetAllAsync();
+    // Obtener todos los grupos y mapear a DTO (resuelve los profileDto desde sus Ids)
+    public async Task<List<GroupsDto>> GetAllAsync()
+    {
+        var result = await _client
+            .From<Group>()
+            .Select("*")
+            .Get();
 
-    public Task<Group?> GetByIdAsync(Guid id)
-        => _repository.GetByIdAsync(id);
+        var tasks = result.Models.Select(async g => new GroupsDto
+        {
+            Id = g.Id,
+            SubjectId = g.SubjectId,
+            Name = g.Name,
+            TeacherId = g.TeacherId,
+            Students = await GetProfilesByIdsAsync(g.Students.ToList())
+        });
 
-    public Task<Group> CreateAsync(Group group)
-        => _repository.CreateAsync(group);
+        var dtoArray = await Task.WhenAll(tasks);
+        return dtoArray.ToList();
+    }
 
-    public Task UpdateAsync(Group group)
-        => _repository.UpdateAsync(group);
+    // Crear un nuevo grupo a partir del DTO
+    public async Task<bool> CreateAsync(GroupsDto dto)
+    {
+        try
+        {
+            var newGroup = new Group
+            {
+                Id = dto.Id ?? Guid.NewGuid(),
+                SubjectId = dto.SubjectId ?? Guid.Empty,
+                Name = dto.Name ?? string.Empty,
+                TeacherId = dto.TeacherId ?? Guid.Empty,
+                Students = []
+            };
 
-    public Task DeleteAsync(Guid id)
-        => _repository.DeleteAsync(id);
+            await _client.From<Group>().Insert(newGroup);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
+    // Actualizar un grupo existente a partir del DTO
+    public async Task<bool> UpdateAsync(Guid id, GroupsDto dto)
+    {
+        if (id == Guid.Empty)
+            return false;
+
+        try
+        {
+            var response = await _client
+                .From<Group>()
+                .Where(g => g.Id == id)
+                .Get();
+
+            var current = response.Models.FirstOrDefault();
+            if (current == null) return false;
+
+            bool hasChanges = false;
+
+            if (!string.IsNullOrWhiteSpace(dto.Name) && current.Name != dto.Name)
+            {
+                current.Name = dto.Name!;
+                hasChanges = true;
+            }
+
+            if (dto.SubjectId != null && current.SubjectId != dto.SubjectId)
+            {
+                current.SubjectId = dto.SubjectId.Value;
+                hasChanges = true;
+            }
+
+            if (dto.TeacherId != null && current.TeacherId != dto.TeacherId)
+            {
+                current.TeacherId = dto.TeacherId.Value;
+                hasChanges = true;
+            }
+
+            // Comparación de IDs de estudiantes
+            var newStudentIds = dto.Students?.Select(p => p.Id).ToArray() ?? Array.Empty<Guid>();
+            if (!Enumerable.SequenceEqual(current.Students ?? Array.Empty<Guid>(), newStudentIds))
+            {
+                current.Students = newStudentIds;
+                hasChanges = true;
+            }
+
+            if (!hasChanges) return false;
+
+            await _client.From<Group>().Update(current);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> DeleteAsync(Guid id)
+    {
+        try
+        {
+            await _client.From<Group>().Where(g => g.Id == id).Delete();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<List<profileDto>> GetProfilesByIdsAsync(List<Guid> ids)
+    {
+        List<profileDto> students = [];
+        foreach(var id in ids)
+        {
+            var student = await _userRepo.GetProfileById(id);
+            if(student != null) students.Add(student);
+        }
+        return students;
+    }
+    
     public async Task<(bool ok, string? error)> DistributeStudentsRoundRobinAsync(Guid subjectId)
     {
-        // 1️⃣ Obtener grupos de la asignatura
-        var groups = (await _repository.GetAllAsync())
+        var groups = (await GetAllAsync())
             .Where(g => g.SubjectId == subjectId)
             .ToList();
 
         if (!groups.Any())
             return (false, "No hay grupos para esta asignatura");
 
-        // 2️⃣ Obtener alumnos matriculados en la asignatura
+        // Obtenemos todos los perfiles y filtramos por rol y asignatura
         var allStudents = (await _userRepo.GetAllProfilesInternaly())
+            .Select(p => new profileDto 
+            {
+                Id = p.Id,
+                Email = p.Email,
+                Name = p.Name,
+                Role = p.Role,
+                // Asegúrate de mapear también las asignaturas si es necesario
+                Subjects = p.Subjects?.Select(s => new SubjectDto { 
+                    Id = s.Id, 
+                    Name = s.Name 
+                }).ToList() ?? new List<SubjectDto>()
+            })
             .Where(p => p.Role == "student" && p.Subjects.Any(s => s.Id == subjectId))
-            .Select(p => p.Id)
             .ToList();
 
         if (!allStudents.Any())
             return (false, "No hay alumnos matriculados en la asignatura");
 
-        // 3️⃣ Alumnos ya asignados a algún grupo
-        var assignedStudents = groups
-            .SelectMany(g => g.Students ?? Array.Empty<Guid>())
+        // Alumnos ya asignados (usando IDs)
+        var assignedStudentIds = groups
+            .SelectMany(g => g.Students ?? new List<profileDto>())
+            .Select(p => p.Id)
             .Distinct()
             .ToHashSet();
 
-        // 4️⃣ Alumnos sin grupo
+        // Alumnos sin grupo (objetos completos para poder añadirlos luego)
         var unassignedStudents = allStudents
-            .Where(s => !assignedStudents.Contains(s))
+            .Where(s => !assignedStudentIds.Contains(s.Id))
             .ToList();
 
         if (!unassignedStudents.Any())
-            return (true, null); // nada que repartir
+            return (true, null);
 
-        // 5️⃣ Capacidad libre REAL por grupo
         var freeCapacity = new Dictionary<Guid, int>();
-
         foreach (var group in groups)
         {
-            var totalCapacity = await _schedulesRepo.GetGroupCapacityByGroupId(group.Id);
-            var used = group.Students?.Length ?? 0;
-
-            freeCapacity[group.Id] = Math.Max(0, totalCapacity - used);
+            var totalCapacity = await _schedulesRepo.GetGroupCapacityByGroupId(group.Id!.Value);
+            var used = group.Students?.Count ?? 0;
+            freeCapacity[group.Id.Value] = Math.Max(0, totalCapacity - used);
         }
 
-        // Comprobar plazas totales suficientes
         if (freeCapacity.Values.Sum() < unassignedStudents.Count)
             return (false, "No hay suficientes plazas para todos los alumnos");
 
-        // 6️⃣ Buckets iniciales (con alumnos ya asignados)
+        // Diccionario para trabajar con los objetos profileDto
         var groupBuckets = groups.ToDictionary(
-            g => g.Id,
-            g => g.Students?.ToList() ?? new List<Guid>()
+            g => g.Id!.Value,
+            g => g.Students ?? new List<profileDto>()
         );
 
-        // 7️⃣ Round Robin respetando capacidad
         int index = 0;
         int totalGroups = groups.Count;
 
-        foreach (var studentId in unassignedStudents)
+        foreach (var student in unassignedStudents)
         {
             int attempts = 0;
-
             while (attempts < totalGroups)
             {
                 var group = groups[index];
-                var groupId = group.Id;
+                var groupId = group.Id!.Value;
 
                 if (freeCapacity[groupId] > 0)
                 {
-                    groupBuckets[groupId].Add(studentId);
+                    groupBuckets[groupId].Add(student);
                     freeCapacity[groupId]--;
                     index = (index + 1) % totalGroups;
                     break;
                 }
-
                 index = (index + 1) % totalGroups;
                 attempts++;
             }
         }
 
-        // 8️⃣ Guardar cambios
         foreach (var group in groups)
         {
-            group.Students = groupBuckets[group.Id].ToArray();
-            await _repository.UpdateAsync(group);
+            group.Students = groupBuckets[group.Id!.Value];
+            await UpdateAsync(group.Id!.Value,group);
         }
 
         return (true, null);
