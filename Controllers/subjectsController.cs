@@ -4,17 +4,20 @@ using Microsoft.AspNetCore.Mvc;
 [Route("api/subjects")]
 public class SubjectsController : ControllerBase
 {
-    private readonly ISubjectsAppService _appService;
+    private readonly ISubjectsAppService _subjectService;
 
-    public SubjectsController(ISubjectsAppService appService)
+    private readonly IProfilesAppService _profileService;
+
+    public SubjectsController(ISubjectsAppService subjectService, IProfilesAppService profileService)
     {
-        _appService = appService;
+        _subjectService = subjectService;
+        _profileService = profileService;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var listSubjects = await _appService.GetAllAsync();
+        var listSubjects = await _subjectService.GetAllAsync();
     
         var dtoList = listSubjects.Select(s => new SubjectDto 
         { 
@@ -27,25 +30,67 @@ public class SubjectsController : ControllerBase
 
 
     [HttpPost]
-    public async Task<IActionResult> Create(SubjectDto subject)
+    public async Task<IActionResult> Create(SubjectDto subject, [FromQuery] Guid adminId)
     {
-        var createdSubject = await _appService.CreateAsync(subject);
+        var refreshToken = Request.Cookies["sb-refresh-token"];
+        if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
+            return Unauthorized();
+        var currentUser = new Profile();
+        if(!string.IsNullOrEmpty(refreshToken)){
+            currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
+        } else
+        {
+            currentUser = await _profileService.GetCurrentUserProfileAsync(adminId);
+        }
+
+        if (currentUser == null || currentUser.Role != "admin")
+            return Unauthorized("Usuario no autorizado");
+        
+        var createdSubject = await _subjectService.CreateAsync(subject);
         if(!createdSubject) return BadRequest("Error al crear la asignatura");
         return Ok("Asignatura Creada"); 
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(SubjectDto subject)
+    public async Task<IActionResult> Update(SubjectDto subject, [FromQuery] Guid adminId)
     {
-        var updatedSubject = await _appService.UpdateAsync(subject);
+        var refreshToken = Request.Cookies["sb-refresh-token"];
+        if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
+            return Unauthorized();
+        var currentUser = new Profile();
+        if(!string.IsNullOrEmpty(refreshToken)){
+            currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
+        } else
+        {
+            currentUser = await _profileService.GetCurrentUserProfileAsync(adminId);
+        }
+
+        if (currentUser == null || currentUser.Role != "admin")
+            return Unauthorized("Usuario no autorizado");
+        
+        var updatedSubject = await _subjectService.UpdateAsync(subject);
         if(!updatedSubject)  return BadRequest("Error al actualizar la asignatura");
         return Ok("Asignatura actualizada");
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(Guid id)
+    public async Task<IActionResult> Delete(Guid id, [FromQuery] Guid adminId)
     {
-        var deletedSubject = await _appService.DeleteAsync(id);
+        var refreshToken = Request.Cookies["sb-refresh-token"];
+        if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
+            return Unauthorized();
+        var currentUser = new Profile();
+        if(!string.IsNullOrEmpty(refreshToken)){
+            currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
+        } else
+        {
+            currentUser = await _profileService.GetCurrentUserProfileAsync(adminId);
+        }
+
+        if (currentUser == null || currentUser.Role != "admin")
+            return Unauthorized("Usuario no autorizado");
+        
+        var deletedSubject = await _subjectService.DeleteAsync(id);
         if(!deletedSubject)  return BadRequest("Error al borrar la asignatura");
         return Ok("Asignatura borrada");
     }
