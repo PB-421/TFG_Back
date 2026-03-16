@@ -13,31 +13,45 @@ public class LocationsController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> GetAll()
-        => Ok(await _appService.GetAllAsync());
+    {
+        var locations = await _appService.GetAllAsync();
+        return Ok(locations);
+    }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(Guid id)
     {
-        var location = await _appService.GetByIdAsync(id);
+        // Nota: He usado GetLocationById para coincidir con el nombre de tu AppService
+        var location = await _appService.GetLocationById(id);
         return location == null ? NotFound() : Ok(location);
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(Location location)
-        => Ok(await _appService.CreateAsync(location));
+    public async Task<IActionResult> Create([FromBody] LocationDto locationDto)
+    {
+        if (locationDto == null) return BadRequest();
+
+        var success = await _appService.CreateAsync(locationDto);
+        
+        // Es buena práctica devolver un 201 Created, pero mantenemos la lógica de éxito
+        return success ? Ok() : BadRequest("Could not create the location.");
+    }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(Guid id, Location location)
+    public async Task<IActionResult> Update(Guid id, [FromBody] LocationDto locationDto)
     {
-        if (id != location.Id) return BadRequest();
-        await _appService.UpdateAsync(location);
+        // Ahora pasamos el ID por separado y el DTO como cuerpo
+        var success = await _appService.UpdateAsync(id, locationDto);
+        
+        if (!success) return NotFound("Location not found or no changes were made.");
+        
         return NoContent();
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        await _appService.DeleteAsync(id);
-        return NoContent();
+        var success = await _appService.DeleteAsync(id);
+        return success ? NoContent() : NotFound();
     }
 }

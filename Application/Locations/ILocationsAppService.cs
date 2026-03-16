@@ -1,9 +1,8 @@
 public interface ILocationsAppService
 {
-    Task<IEnumerable<Location>> GetAllAsync();
-    Task<Location?> GetByIdAsync(Guid id);
-    Task<int> GetCapacityByIdAsync(Guid id);
-    Task<Location> CreateAsync(Location location);
-    Task UpdateAsync(Location location);
-    Task DeleteAsync(Guid id);
+    Task<List<LocationDto>> GetAllAsync();
+    Task<LocationDto> GetLocationById(Guid id);
+    Task<bool> CreateAsync(LocationDto location);
+    Task<bool> UpdateAsync(Guid id, LocationDto location);
+    Task<bool> DeleteAsync(Guid id);
 }

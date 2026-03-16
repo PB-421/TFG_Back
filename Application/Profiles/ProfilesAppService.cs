@@ -1,5 +1,3 @@
-using Supabase;
-using Supabase.Gotrue;
 using System.Text;
 using System.Text.Json;
 

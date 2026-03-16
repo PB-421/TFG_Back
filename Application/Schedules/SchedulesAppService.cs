@@ -23,8 +23,14 @@ public class SchedulesAppService : ISchedulesAppService
             .ToList();
         foreach (var location in locations)
         {
-            int locationCapacity = await _locationRepo.GetCapacityByIdAsync(location);
-            totalCapacity = totalCapacity + locationCapacity;
+            LocationDto locationCapacity = await _locationRepo.GetLocationById(location);
+            if(totalCapacity == 0)
+            {
+                totalCapacity = locationCapacity.Capacity ?? 0;
+            } else if (locationCapacity.Capacity! <= totalCapacity)
+            {
+                totalCapacity = locationCapacity.Capacity ?? 0;
+            }
         }
         return totalCapacity;
     }

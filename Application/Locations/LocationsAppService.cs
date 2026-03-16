@@ -1,31 +1,94 @@
 public class LocationsAppService : ILocationsAppService
 {
-    private readonly ISupabaseService<Location> _repository;
+    private readonly Supabase.Client _client;
 
-    public LocationsAppService(ISupabaseService<Location> repository)
+    public LocationsAppService(Supabase.Client client)
     {
-        _repository = repository;
+        _client = client;
     }
 
-    public Task<IEnumerable<Location>> GetAllAsync()
-        => _repository.GetAllAsync();
-
-    public Task<Location?> GetByIdAsync(Guid id)
-        => _repository.GetByIdAsync(id);
-
-    public async Task<int> GetCapacityByIdAsync(Guid id)
+    public async Task<List<LocationDto>> GetAllAsync()
     {
-        var location = await _repository.GetByIdAsync(id);
-        if(location != null) return location.Capacity;
-        else return 0; 
+        var response = await _client.From<Location>().Select("*").Get();
+    
+        return response.Models.Select(l => new LocationDto 
+        { 
+            Id = l.Id, 
+            Name = l.Name,
+            Capacity = l.Capacity
+        }).ToList();
     }
 
-    public Task<Location> CreateAsync(Location location)
-        => _repository.CreateAsync(location);
+    public async Task<LocationDto> GetLocationById(Guid id)
+    {
+        var result = await _client
+            .From<Location>()
+            .Select("*")
+            .Where(p => p.Id == id)
+            .Single();
+        if(result == null) return new LocationDto();
+        var location = new LocationDto
+        {
+            Id = result.Id,
+            Name = result.Name,
+            Capacity = result.Capacity
+        };
 
-    public Task UpdateAsync(Location location)
-        => _repository.UpdateAsync(location);
+        return location;
+    }
 
-    public Task DeleteAsync(Guid id)
-        => _repository.DeleteAsync(id);
+    public async Task<bool> CreateAsync(LocationDto location)
+    {
+        var newLocation = new Location
+        {
+            Id = Guid.NewGuid(),
+            Name = location.Name ?? string.Empty,
+            Capacity = location.Capacity ?? 0
+        };
+
+        await _client.From<Location>().Insert(newLocation);
+        return true;
+    }
+
+    public async Task<bool> UpdateAsync(Guid id, LocationDto location)
+    {
+        var response = await _client
+            .From<Location>()
+            .Where(l => l.Id == id)
+            .Get();
+        
+        var currentLocation = response.Models.FirstOrDefault();
+        
+        if (currentLocation == null)
+            return false;
+
+        bool hasChanges = false;
+
+        if (!string.IsNullOrWhiteSpace(location.Name) && currentLocation.Name != location.Name)
+        {
+            currentLocation.Name = location.Name;
+            hasChanges = true;
+        }
+
+        if (location.Capacity.HasValue && currentLocation.Capacity != location.Capacity.Value)
+        {
+            currentLocation.Capacity = location.Capacity.Value;
+            hasChanges = true;
+        }
+
+        if (!hasChanges)
+            return false;
+
+        await _client
+            .From<Location>()
+            .Update(currentLocation);
+            
+        return true;
+    }
+
+    public async Task<bool> DeleteAsync(Guid id)
+    {
+        await _client.From<Location>().Where(l => l.Id == id).Delete();
+        return true;
+    }
 }
