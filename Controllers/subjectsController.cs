@@ -28,6 +28,13 @@ public class SubjectsController : ControllerBase
         return Ok(dtoList);
     }
 
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById(Guid id)
+    {
+        List<SubjectDto> subjects = await _subjectService.GetNamesByIds([id]);
+        return Ok(subjects[0].Name);
+    }
+
 
     [HttpPost]
     public async Task<IActionResult> Create(SubjectDto subject, [FromQuery] Guid adminId)
@@ -52,7 +59,7 @@ public class SubjectsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(SubjectDto subject, [FromQuery] Guid adminId)
+    public async Task<IActionResult> Update(Guid id, SubjectDto subject, [FromQuery] Guid adminId)
     {
         var refreshToken = Request.Cookies["sb-refresh-token"];
         if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
@@ -68,7 +75,7 @@ public class SubjectsController : ControllerBase
         if (currentUser == null || currentUser.Role != "admin")
             return Unauthorized("Usuario no autorizado");
         
-        var updatedSubject = await _subjectService.UpdateAsync(subject);
+        var updatedSubject = await _subjectService.UpdateAsync(id, subject);
         if(!updatedSubject)  return BadRequest("Error al actualizar la asignatura");
         return Ok("Asignatura actualizada");
     }

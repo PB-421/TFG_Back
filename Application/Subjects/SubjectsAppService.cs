@@ -46,11 +46,11 @@ public class SubjectsAppService : ISubjectsAppService
         return true;
     }
 
-    public async Task<bool> UpdateAsync(SubjectDto subject)
+    public async Task<bool> UpdateAsync(Guid id, SubjectDto subject)
     {
         var currentSubject = await _client
             .From<Subject>()
-            .Where(s => s.Id == subject.Id)
+            .Where(s => s.Id == id)
             .Single();
         
         if (currentSubject == null)

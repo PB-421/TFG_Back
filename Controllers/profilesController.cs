@@ -51,6 +51,13 @@ public class ProfilesController : ControllerBase
         }
     }
 
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetProfileById(Guid id)
+    {
+        var profile = await _profilesService.GetProfileById(id);
+        return Ok(profile);
+    }
+
     // ---------------- UPDATE USER----------------
     [HttpPut("UpdateUser/{id}")]
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateDto dto, [FromQuery] Guid adminId)
