@@ -9,14 +9,14 @@ public class Schedule : BaseModel
     public Guid Id { get; set; } = Guid.NewGuid();
 
     [Column("group_id")]
-    public Guid GroupId { get; set; }
+    public Guid GroupId { get; set; } = Guid.Empty;
 
     [Column("start_date")]
-    public DateOnly StartDate { get; set; }
+    public DateTime StartDate { get; set; }
 
     [Column("end_date")]
-    public DateOnly EndDate { get; set; }
+    public DateTime EndDate { get; set; }
 
     [Column("location_id")]
-    public Guid LocationId { get; set; }
+    public Guid LocationId { get; set; }  = Guid.Empty;
 }

@@ -1,9 +1,8 @@
 public interface ISchedulesAppService
 {
-    Task<IEnumerable<Schedule>> GetAllAsync();
-    Task<Schedule?> GetByIdAsync(Guid id);
-    Task<Schedule> CreateAsync(Schedule schedule);
-    Task UpdateAsync(Schedule schedule);
-    Task DeleteAsync(Guid id);
-    Task<int> GetGroupCapacityByGroupId(Guid groupId);
+    Task<List<SchedulesDto>> GetAllAsync();
+    Task<bool> CreateAsync(SchedulesDto dto);
+    Task<List<Guid>> GetLocationsById(Guid groupId);
+    Task<bool> UpdateAsync(Guid id, SchedulesDto dto);
+    Task<bool> DeleteAsync(Guid id);
 }

@@ -44,7 +44,8 @@ public class RequestsAppService : IRequestsAppService
         foreach (var group in groups)
         {
             // Capacidad total de la ubicación
-            var totalCapacity = await _schedulesRepo.GetGroupCapacityByGroupId(group.Id);
+            var totalCapacity = 0; 
+            //var totalCapacity = await _schedulesRepo.GetGroupCapacityByGroupId(group.Id);
 
             // Alumnos ya asignados
             var currentStudents = group.Students?.Length ?? 0;

@@ -19,7 +19,7 @@ public class LocationsAppService : ILocationsAppService
         }).ToList();
     }
 
-    public async Task<LocationDto> GetLocationById(Guid id)
+    public async Task<LocationDto> GetLocationById(Guid? id)
     {
         var result = await _client
             .From<Location>()
@@ -35,6 +35,25 @@ public class LocationsAppService : ILocationsAppService
         };
 
         return location;
+    }
+
+    public async Task<int> GetLocationsCapacityByIds(List<Guid> Ids)
+    {
+        int totalCapacity = 0;
+        foreach (var location in Ids)
+        {
+            if (location == Guid.Empty) continue;
+
+            LocationDto locationCapacity = await GetLocationById(location);
+
+            int capacity = locationCapacity.Capacity ?? 0;
+
+            if (totalCapacity == 0 || capacity <= totalCapacity)
+            {
+                totalCapacity = capacity;
+            }
+        }
+        return totalCapacity;
     }
 
     public async Task<bool> CreateAsync(LocationDto location)

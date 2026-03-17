@@ -31,7 +31,7 @@ public class SubjectsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(Guid id)
     {
-        List<SubjectDto> subjects = await _subjectService.GetNamesByIds([id]);
+        List<SubjectDto> subjects = await _subjectService.GetSubjectNamesByIds([id]);
         return Ok(subjects[0].Name);
     }
 

@@ -1,48 +1,147 @@
+using Supabase;
 public class SchedulesAppService : ISchedulesAppService
 {
-    private readonly ISupabaseService<Schedule> _repository;
+    private readonly Client _client;
 
-    private readonly ILocationsAppService _locationRepo;
+    private readonly ILocationsAppService _locationService;
+    private readonly IGroupsAppService _groupsService;
 
-    public SchedulesAppService(ISupabaseService<Schedule> repository, ILocationsAppService locationRepo)
+    public SchedulesAppService(Client client, ILocationsAppService locationService, IGroupsAppService groupsService)
     {
-        _repository = repository;
-        _locationRepo = locationRepo;
+        _client = client;
+        _locationService = locationService;
+        _groupsService = groupsService;
     }
 
-    public Task<IEnumerable<Schedule>> GetAllAsync()
-        => _repository.GetAllAsync();
-
-    public async Task<int> GetGroupCapacityByGroupId(Guid groupId)
+    public async Task<List<SchedulesDto>> GetAllAsync()
     {
-        int totalCapacity = 0;
-        var locations = (await _repository.GetAllAsync())
-            .Where(g => g.GroupId == groupId)
-            .Select(g => g.LocationId)
+        var result = await _client
+            .From<Schedule>()
+            .Select("*")
+            .Get();
+
+        var tasks = result.Models.Select(async s => new SchedulesDto
+        {
+            Id = s.Id,
+            Group = await _groupsService.GetGroupsNamesByIds(s.GroupId),
+            StartDate = s.StartDate,
+            EndDate = s.EndDate,
+            Location = await _locationService.GetLocationById(s.LocationId)
+        });
+
+        var dtoArray = await Task.WhenAll(tasks);
+        return dtoArray.ToList();
+    }
+
+    public async Task<bool> CreateAsync(SchedulesDto dto)
+    {
+        try
+        {
+            // Validación de solapamiento antes de crear
+            if (dto.StartDate.HasValue && dto.EndDate.HasValue && dto.Location!.Id != null)
+            {
+                var isOccupied = await IsLocationOccupiedAsync(dto.Location.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
+                if (isOccupied) return false; 
+            }
+
+            var newSchedule = new Schedule
+            {
+                Id = dto.Id ?? Guid.NewGuid(),
+                GroupId = dto.Group!.Id ?? Guid.Empty,
+                StartDate = dto.StartDate ?? DateTime.Now,
+                EndDate = dto.EndDate ?? DateTime.Now.AddHours(1),
+                LocationId = dto.Location!.Id ?? Guid.Empty
+            };
+
+            await _client.From<Schedule>().Insert(newSchedule);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<List<Guid>> GetLocationsById(Guid groupId)
+    {
+        var locations = (await GetAllAsync())
+            .Where(g => g.Group!.Id == groupId)
+            .Select(g => g.Location!.Id!.Value)
             .Distinct()
             .ToList();
-        foreach (var location in locations)
-        {
-            LocationDto locationCapacity = await _locationRepo.GetLocationById(location);
-            if(totalCapacity == 0)
-            {
-                totalCapacity = locationCapacity.Capacity ?? 0;
-            } else if (locationCapacity.Capacity! <= totalCapacity)
-            {
-                totalCapacity = locationCapacity.Capacity ?? 0;
-            }
-        }
-        return totalCapacity;
+
+        return locations;
     }
-    public Task<Schedule?> GetByIdAsync(Guid id)
-        => _repository.GetByIdAsync(id);
 
-    public Task<Schedule> CreateAsync(Schedule schedule)
-        => _repository.CreateAsync(schedule);
+    public async Task<bool> UpdateAsync(Guid id, SchedulesDto dto)
+    {
+        if (id == Guid.Empty) return false;
 
-    public Task UpdateAsync(Schedule schedule)
-        => _repository.UpdateAsync(schedule);
+        try
+        {
+            var response = await _client.From<Schedule>().Where(s => s.Id == id).Get();
+            var current = response.Models.FirstOrDefault();
+            if (current == null) return false;
 
-    public Task DeleteAsync(Guid id)
-        => _repository.DeleteAsync(id);
+            // Si cambian fechas o ubicación, validar disponibilidad
+            if ((dto.StartDate != null && dto.StartDate != current.StartDate) || 
+                (dto.EndDate != null && dto.EndDate != current.EndDate) ||
+                (dto.Location!.Id != null && dto.Location.Id != current.LocationId))
+            {
+                var isOccupied = await IsLocationOccupiedAsync(
+                    dto.Location!.Id ?? current.LocationId, 
+                    dto.StartDate ?? current.StartDate, 
+                    dto.EndDate ?? current.EndDate,
+                    id // Excluimos el registro actual de la validación
+                );
+                if (isOccupied) return false;
+            }
+
+            current.GroupId = dto.Group!.Id ?? current.GroupId;
+            current.StartDate = dto.StartDate ?? current.StartDate;
+            current.EndDate = dto.EndDate ?? current.EndDate;
+            current.LocationId = dto.Location.Id ?? current.LocationId;
+
+            await _client.From<Schedule>().Update(current);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> DeleteAsync(Guid id)
+    {
+        try
+        {
+            await _client.From<Schedule>().Where(s => s.Id == id).Delete();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> IsLocationOccupiedAsync(Guid locationId, DateTime start, DateTime end, Guid? excludeId = null)
+    {
+        // Lógica de solapamiento: (Inicio1 < Fin2) Y (Fin1 > Inicio2)
+        var response = await _client
+            .From<Schedule>()
+            .Where(s => s.LocationId == locationId)
+            .Where(s => s.StartDate < end)
+            .Where(s => s.EndDate > start)
+            .Get();
+
+        var conflicts = response.Models;
+
+        // Si estamos editando, ignoramos el registro que estamos modificando
+        if (excludeId.HasValue)
+        {
+            conflicts = conflicts.Where(c => c.Id != excludeId.Value).ToList();
+        }
+
+        return conflicts.Any();
+    }
 }

@@ -18,7 +18,7 @@ public class SubjectsAppService : ISubjectsAppService
         }).ToList();
     }
 
-    public async Task<List<SubjectDto>> GetNamesByIds(List<Guid> ids)
+    public async Task<List<SubjectDto>> GetSubjectNamesByIds(List<Guid> ids)
     {
         if (ids == null || !ids.Any()) return new List<SubjectDto>();
 

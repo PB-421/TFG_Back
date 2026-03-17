@@ -38,7 +38,7 @@ public class ProfilesController : ControllerBase
                 Email = p.Email,
                 Name = p.Name,
                 Role = p.Role,
-                Subjects = await _subjectsService.GetNamesByIds(p.Subjects)
+                Subjects = await _subjectsService.GetSubjectNamesByIds(p.Subjects)
             });
 
             var dtoList = await Task.WhenAll(tasks);
