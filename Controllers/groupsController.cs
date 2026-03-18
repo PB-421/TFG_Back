@@ -11,37 +11,101 @@ public class GroupsController : ControllerBase
         _appService = appService;
     }
 
-   [HttpGet]
+    [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var groups = await _appService.GetAllAsync();
-        return Ok(groups);
+        try
+        {
+            var groups = await _appService.GetAllAsync();
+            return Ok(groups);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] GroupsDto dto)
     {
-        var success = await _appService.CreateAsync(dto);
-        if (!success) return BadRequest("No se pudo crear el grupo.");
-        
-        return Ok("Grupo Creado");
+        try
+        {
+            if (dto == null) return BadRequest("Payload inválido");
+
+            var success = await _appService.CreateAsync(dto);
+            if (!success) return BadRequest("No se pudo crear el grupo");
+
+            return Ok("Grupo creado");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] GroupsDto dto)
     {
-        var success = await _appService.UpdateAsync(id, dto);
-        if (!success) return BadRequest("Grupo no actualizado");
-        
-        return Ok("Grupo actualizado");
+        try
+        {
+            if (dto == null) return BadRequest("Payload inválido");
+
+            var success = await _appService.UpdateAsync(id, dto);
+            if (!success) return BadRequest("Grupo no actualizado o no encontrado");
+
+            return Ok("Grupo actualizado");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var success = await _appService.DeleteAsync(id);
-        if (!success) return NotFound();
-        
-        return NoContent();
+        try
+        {
+            var success = await _appService.DeleteAsync(id);
+            if (!success) return NotFound("Grupo no encontrado");
+
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
     }
 }

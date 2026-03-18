@@ -34,8 +34,21 @@ public class SubjectsAppService : ISubjectsAppService
         })
         .ToList();
     }
+
+    public async Task<bool> ExistByName(string Name)
+    {
+        var response = await _client
+            .From<Subject>()
+            .Where(s => s.Name == Name)
+            .Get();
+
+        if (response == null) return false;
+        if (response.Models == null || !response.Models.Any()) return false;
+        return true;
+    }
     public async Task<bool> CreateAsync(SubjectDto subject)
     {
+        if(await ExistByName(subject.Name!)) return false;
         var newSubject = new Subject
         {
             Id= Guid.NewGuid(),
@@ -48,6 +61,7 @@ public class SubjectsAppService : ISubjectsAppService
 
     public async Task<bool> UpdateAsync(Guid id, SubjectDto subject)
     {
+        if(await ExistByName(subject.Name!)) return false;
         var currentSubject = await _client
             .From<Subject>()
             .Where(s => s.Id == id)

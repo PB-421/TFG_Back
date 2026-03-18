@@ -16,54 +16,152 @@ public class SchedulesController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var schedules = await _appService.GetAllAsync();
-        return Ok(schedules);
+        try
+        {
+            var schedules = await _appService.GetAllAsync();
+            return Ok(schedules);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
     }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(Guid id)
     {
-        var schedules = await _appService.GetAllAsync();
-        var schedule = schedules.FirstOrDefault(s => s.Id == id);
-        return schedule == null ? NotFound() : Ok(schedule);
+        try
+        {
+            var schedules = await _appService.GetAllAsync();
+            var schedule = schedules.FirstOrDefault(s => s.Id == id);
+            if (schedule == null) return NotFound("Horario no encontrado");
+            return Ok(schedule);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(List<SchedulesDto> dtos)
+    public async Task<IActionResult> Create([FromBody] List<SchedulesDto> dtos)
     {
-        foreach(var dto in dtos){
-            var success = await _appService.CreateAsync(dto);
-            if (!success) 
-                return BadRequest("No se pudo crear el horario. Verifique si la ubicación está ocupada o si los datos son correctos.");
+        try
+        {
+            if (dtos == null || dtos.Count == 0) return BadRequest("Payload inválido o lista vacía");
+
+            foreach (var dto in dtos)
+            {
+                var success = await _appService.CreateAsync(dto);
+                if (!success)
+                    return BadRequest("No se pudo crear el horario. Verifique si la ubicación está ocupada o si los datos son correctos.");
+            }
+
+            return Ok("Horarios creados");
         }
-        
-        return Ok("Horarios creados");
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(Guid id, SchedulesDto dto)
+    public async Task<IActionResult> Update(Guid id, [FromBody] SchedulesDto dto)
     {
-        var success = await _appService.UpdateAsync(id, dto);
-        if (!success) 
-            return BadRequest("No se pudo actualizar. Es posible que el ID no exista o haya un conflicto de horario.");
-        
-        return Ok("Horario actualizado");
+        try
+        {
+            if (dto == null) return BadRequest("Payload inválido");
+
+            var success = await _appService.UpdateAsync(id, dto);
+            if (!success)
+                return BadRequest("No se pudo actualizar. Es posible que el ID no exista o haya un conflicto de horario.");
+
+            return Ok("Horario actualizado");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var success = await _appService.DeleteAsync(id);
-        if (!success) return NotFound();
-        
-        return Ok("Horario borrado");
+        try
+        {
+            var success = await _appService.DeleteAsync(id);
+            if (!success) return NotFound("Horario no encontrado");
+            return Ok("Horario borrado");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
     }
 
     [HttpGet("capacity/{groupId}")]
     public async Task<IActionResult> GetCapacity(Guid groupId)
     {
-        var groupLocations = await _appService.GetLocationsById(groupId);
-        var capacity = await _locationService.GetLocationsCapacityByIds(groupLocations);
-        return Ok(new { GroupId = groupId, Capacity = capacity });
+        try
+        {
+            var groupLocations = await _appService.GetLocationsById(groupId);
+            if (groupLocations == null || !groupLocations.Any())
+                return NotFound("No se encontraron ubicaciones para el grupo especificado");
+
+            var capacity = await _locationService.GetLocationsCapacityByIds(groupLocations);
+            return Ok(new { GroupId = groupId, Capacity = capacity });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
     }
 }

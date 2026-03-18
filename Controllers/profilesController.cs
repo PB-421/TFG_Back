@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Mvc;
 public class ProfilesController : ControllerBase
 {
     private readonly IProfilesAppService _profilesService;
-
     private readonly ISubjectsAppService _subjectsService;
 
     public ProfilesController(IProfilesAppService profilesService, ISubjectsAppService subjectsService)
@@ -17,20 +16,24 @@ public class ProfilesController : ControllerBase
     [HttpGet("GetAll")]
     public async Task<IActionResult> GetAll([FromQuery] Guid adminId)
     {
-        var refreshToken = Request.Cookies["sb-refresh-token"];
-        if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
-            return Unauthorized();
-
         try
         {
+            var refreshToken = Request.Cookies["sb-refresh-token"];
+            if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
+                return Unauthorized();
+
             var profiles = new List<Profile>();
-            if(!string.IsNullOrEmpty(refreshToken)){
+            if (!string.IsNullOrEmpty(refreshToken))
+            {
                 profiles = await _profilesService.GetAllProfilesAsync(refreshToken!);
-            } else
+            }
+            else
             {
                 profiles = await _profilesService.GetAllProfilesAsync(adminId);
             }
-            if (profiles == null || profiles.Count == 0) return Unauthorized();
+
+            if (profiles == null || profiles.Count == 0)
+                return Unauthorized();
 
             var tasks = profiles.Select(async p => new profileDto
             {
@@ -49,39 +52,82 @@ public class ProfilesController : ControllerBase
         {
             return Forbid(ex.Message);
         }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
     }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetProfileById(Guid id)
     {
-        var profile = await _profilesService.GetProfileById(id);
-        return Ok(profile);
+        try
+        {
+            var profile = await _profilesService.GetProfileById(id);
+            if (profile == null)
+                return NotFound("Perfil no encontrado");
+
+            return Ok(profile);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
     }
 
     // ---------------- UPDATE USER----------------
     [HttpPut("UpdateUser/{id}")]
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateDto dto, [FromQuery] Guid adminId)
     {
-        var refreshToken = Request.Cookies["sb-refresh-token"];
-        if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
-            return Unauthorized();
-        var currentUser = new Profile();
-        if(!string.IsNullOrEmpty(refreshToken)){
-            currentUser = await _profilesService.GetCurrentUserProfileAsync(refreshToken);
-        } else
+        try
         {
-            currentUser = await _profilesService.GetCurrentUserProfileAsync(adminId);
+            var refreshToken = Request.Cookies["sb-refresh-token"];
+            if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
+                return Unauthorized();
+
+            Profile currentUser;
+            if (!string.IsNullOrEmpty(refreshToken))
+            {
+                currentUser = await _profilesService.GetCurrentUserProfileAsync(refreshToken);
+            }
+            else
+            {
+                currentUser = await _profilesService.GetCurrentUserProfileAsync(adminId);
+            }
+
+            if (currentUser == null || currentUser.Role != "admin")
+                return Unauthorized("Usuario no autorizado");
+
+            var result = await _profilesService.UpdateUserAsync(id, dto.Role, dto.Name);
+
+            if (!result)
+                return BadRequest("No hubo cambios o no autorizado");
+
+            return Ok("Usuario actualizado");
         }
-
-        if (currentUser == null || currentUser.Role != "admin")
-            return Unauthorized("Usuario no autorizado");
-
-        var result = await _profilesService
-            .UpdateUserAsync(id, dto.Role, dto.Name);
-
-        if (!result)
-            return BadRequest("No hubo cambios o no autorizado");
-
-        return Ok("Usuario actualizado");
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
     }
 }
