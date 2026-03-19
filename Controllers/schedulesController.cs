@@ -70,10 +70,10 @@ public class SchedulesController : ControllerBase
             {
                 var success = await _appService.CreateAsync(dto);
                 if (!success)
-                    return BadRequest("No se pudo crear el horario. Verifique si la ubicación está ocupada o si los datos son correctos.");
+                    return BadRequest("No se pudo crear la sesión. Ya hay una sesion en la misma localizacion en las fechas introducidas");
             }
 
-            return Ok("Horarios creados");
+            return Ok("Sesion creada");
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -98,9 +98,9 @@ public class SchedulesController : ControllerBase
 
             var success = await _appService.UpdateAsync(id, dto);
             if (!success)
-                return BadRequest("No se pudo actualizar. Es posible que el ID no exista o haya un conflicto de horario.");
+                return BadRequest("No se pudo actualizar. La clase seleccionada esta ocupada a las fechas introducidas");
 
-            return Ok("Horario actualizado");
+            return Ok("Sesion actualizada");
         }
         catch (UnauthorizedAccessException ex)
         {

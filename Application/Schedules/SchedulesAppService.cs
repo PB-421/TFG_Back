@@ -35,8 +35,6 @@ public class SchedulesAppService : ISchedulesAppService
 
     public async Task<bool> CreateAsync(SchedulesDto dto)
     {
-        try
-        {
             // Validación de solapamiento antes de crear
             if (dto.StartDate.HasValue && dto.EndDate.HasValue && dto.Location!.Id != null)
             {
@@ -55,11 +53,6 @@ public class SchedulesAppService : ISchedulesAppService
 
             await _client.From<Schedule>().Insert(newSchedule);
             return true;
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     public async Task<List<Guid>> GetLocationsById(Guid groupId)
@@ -76,39 +69,31 @@ public class SchedulesAppService : ISchedulesAppService
     public async Task<bool> UpdateAsync(Guid id, SchedulesDto dto)
     {
         if (id == Guid.Empty) return false;
+        var response = await _client.From<Schedule>().Where(s => s.Id == id).Get();
+        var current = response.Models.FirstOrDefault();
+        if (current == null) return false;
 
-        try
+        // Si cambian fechas o ubicación, validar disponibilidad
+        if ((dto.StartDate != null && dto.StartDate != current.StartDate) || 
+            (dto.EndDate != null && dto.EndDate != current.EndDate) ||
+            (dto.Location!.Id != null && dto.Location.Id != current.LocationId))
         {
-            var response = await _client.From<Schedule>().Where(s => s.Id == id).Get();
-            var current = response.Models.FirstOrDefault();
-            if (current == null) return false;
-
-            // Si cambian fechas o ubicación, validar disponibilidad
-            if ((dto.StartDate != null && dto.StartDate != current.StartDate) || 
-                (dto.EndDate != null && dto.EndDate != current.EndDate) ||
-                (dto.Location!.Id != null && dto.Location.Id != current.LocationId))
-            {
-                var isOccupied = await IsLocationOccupiedAsync(
-                    dto.Location!.Id ?? current.LocationId, 
-                    dto.StartDate ?? current.StartDate, 
-                    dto.EndDate ?? current.EndDate,
-                    id // Excluimos el registro actual de la validación
-                );
-                if (isOccupied) return false;
-            }
-
-            current.GroupId = dto.Group!.Id ?? current.GroupId;
-            current.StartDate = dto.StartDate ?? current.StartDate;
-            current.EndDate = dto.EndDate ?? current.EndDate;
-            current.LocationId = dto.Location.Id ?? current.LocationId;
-
-            await _client.From<Schedule>().Update(current);
-            return true;
+            var isOccupied = await IsLocationOccupiedAsync(
+                dto.Location!.Id ?? current.LocationId, 
+                dto.StartDate ?? current.StartDate, 
+                dto.EndDate ?? current.EndDate,
+                id // Excluimos el registro actual de la validación
+            );
+            if (isOccupied) return false;
         }
-        catch
-        {
-            return false;
-        }
+
+        current.GroupId = dto.Group!.Id ?? current.GroupId;
+        current.StartDate = dto.StartDate ?? current.StartDate;
+        current.EndDate = dto.EndDate ?? current.EndDate;
+        current.LocationId = dto.Location.Id ?? current.LocationId;
+
+        await _client.From<Schedule>().Update(current);
+        return true;
     }
 
     public async Task<bool> DeleteAsync(Guid id)

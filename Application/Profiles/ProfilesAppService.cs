@@ -60,8 +60,6 @@ public class ProfilesAppService : IProfilesAppService
 
             var userId = Guid.Parse(session.user.id);
 
-            Console.WriteLine(userId);
-
             return await _client
                 .From<Profile>()
                 .Where(p => p.Id == userId)
