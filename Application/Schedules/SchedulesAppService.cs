@@ -33,6 +33,27 @@ public class SchedulesAppService : ISchedulesAppService
         return dtoArray.ToList();
     }
 
+    public async Task<List<SchedulesDto>> GetSchedulesByGroupIdAsync(Guid groupId)
+    {
+        var result = await _client
+            .From<Schedule>()
+            .Select("*")
+            .Where(s => s.GroupId == groupId)
+            .Get();
+
+        var tasks = result.Models.Select(async s => new SchedulesDto
+        {
+            Id = s.Id,
+            Group = await _groupsService.GetGroupsNamesByIds(s.GroupId),
+            StartDate = s.StartDate,
+            EndDate = s.EndDate,
+            Location = await _locationService.GetLocationById(s.LocationId)
+        });
+
+        var dtoArray = await Task.WhenAll(tasks);
+        return dtoArray.ToList();
+    }
+
     public async Task<bool> CreateAsync(SchedulesDto dto)
     {
             // Validación de solapamiento antes de crear

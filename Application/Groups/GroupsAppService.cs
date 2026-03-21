@@ -11,7 +11,6 @@ public class GroupsAppService : IGroupsAppService
         _userRepo = userRepo;
     }
 
-    // Obtener todos los grupos y mapear a DTO (resuelve los profileDto desde sus Ids)
     public async Task<List<GroupsDto>> GetAllAsync()
     {
         var result = await _client
@@ -31,6 +30,36 @@ public class GroupsAppService : IGroupsAppService
         var dtoArray = await Task.WhenAll(tasks);
         return dtoArray.ToList();
     }
+
+public async Task<List<GroupsDto>> GetStudentGroupsByIdAsync(Guid studentId)
+{
+    if (studentId == Guid.Empty) return new List<GroupsDto>();
+    var response = await _client
+        .From<Group>()
+        .Select("*")
+        .Get();
+
+    var allGroups = response.Models ?? new List<Group>();
+
+    // Filtrar en memoria por studentId
+    var groupsOfStudent = allGroups
+        .Where(g => g.Students.Contains(studentId))
+        .ToList();
+
+    if (!groupsOfStudent.Any()) return new List<GroupsDto>();
+
+    var tasks = groupsOfStudent.Select(async g => new GroupsDto
+    {
+        Id = g.Id,
+        SubjectId = g.SubjectId,
+        Name = g.Name,
+        TeacherId = g.TeacherId,
+        Students = await GetProfilesByIdsAsync(g.Students.ToList())
+    });
+
+    var dtoArray = await Task.WhenAll(tasks);
+    return dtoArray.ToList();
+}
 
     public async Task<GroupsDto> GetGroupsNamesByIds(Guid id)
     {

@@ -18,5 +18,5 @@ public class Group : BaseModel
     public Guid TeacherId { get; set; }
 
     [Column("students")]
-    public Guid[] Students { get; set; } = [];
+    public Guid[] Students { get; set; } = Array.Empty<Guid>();
 }

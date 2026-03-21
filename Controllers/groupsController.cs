@@ -33,6 +33,28 @@ public class GroupsController : ControllerBase
         }
     }
 
+    [HttpGet("student/{studentId}")]
+    public async Task<IActionResult> GetStudentGroupsById(Guid studentId)
+    {
+        try
+        {
+            var groups = await _appService.GetStudentGroupsByIdAsync(studentId);
+            return Ok(groups);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] GroupsDto dto)
     {

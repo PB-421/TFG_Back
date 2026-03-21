@@ -41,12 +41,58 @@ public class ProfilesController : ControllerBase
                 Email = p.Email,
                 Name = p.Name,
                 Role = p.Role,
-                Subjects = await _subjectsService.GetSubjectNamesByIds(p.Subjects)
+                Subjects = await _subjectsService.GetSubjectNamesByIds(p.Subjects.ToList())
             });
 
             var dtoList = await Task.WhenAll(tasks);
 
             return Ok(dtoList);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
+    }
+
+    [HttpGet("GetUser")]
+    public async Task<IActionResult> GetUser([FromQuery] Guid id)
+    {
+        try
+        {
+            var refreshToken = Request.Cookies["sb-refresh-token"];
+            if (string.IsNullOrEmpty(refreshToken) && id == Guid.Empty)
+                return Unauthorized();
+
+            Profile currentUser;
+            if (!string.IsNullOrEmpty(refreshToken))
+            {
+                currentUser = await _profilesService.GetCurrentUserProfileAsync(refreshToken);
+            }
+            else
+            {
+                currentUser = await _profilesService.GetCurrentUserProfileAsync(id);
+            }
+
+            if (currentUser == null)
+                return BadRequest("Usuario no encontrado");
+
+            var User = new profileDto
+            {
+                Id = currentUser.Id,
+                Email = currentUser.Email,
+                Name = currentUser.Name,
+                Role = currentUser.Role,
+                Subjects = await _subjectsService.GetSubjectNamesByIds(currentUser.Subjects.ToList())
+            };
+            return Ok(User);
         }
         catch (UnauthorizedAccessException ex)
         {

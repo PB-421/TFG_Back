@@ -59,6 +59,28 @@ public class SchedulesController : ControllerBase
         }
     }
 
+    [HttpGet("group/{groupId}")]
+    public async Task<IActionResult> GetSchedulesByGroupId(Guid groupId)
+    {
+        try
+        {
+            var schedules = await _appService.GetSchedulesByGroupIdAsync(groupId);
+            return Ok(schedules);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] List<SchedulesDto> dtos)
     {

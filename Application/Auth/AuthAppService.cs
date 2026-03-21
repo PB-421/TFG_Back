@@ -86,8 +86,7 @@ public class AuthAppService : IAuthAppService
     }
 
     // ---------------- REFRESH SESSION ----------------
-    public async Task<(string accessToken, string refreshToken, int expiresIn, Profile?)?>
-        RefreshSessionAsync(string refreshToken)
+    public async Task<(string accessToken, string refreshToken, int expiresIn, Profile?)?> RefreshSessionAsync(string refreshToken)
     {
         if (string.IsNullOrEmpty(refreshToken))
             return null;

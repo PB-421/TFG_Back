@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 public class SubjectsAppService : ISubjectsAppService
 {
     private readonly Supabase.Client _client;
@@ -23,15 +25,12 @@ public class SubjectsAppService : ISubjectsAppService
         if (ids == null || !ids.Any()) return new List<SubjectDto>();
 
         var response = await _client.From<Subject>()
-            .Where(s => ids.Contains(s.Id))
+            .Select("*")
             .Get();
 
         return response.Models
-        .Select(s => new SubjectDto 
-        { 
-            Id = s.Id, 
-            Name = s.Name 
-        })
+        .Where(s => ids.Contains(s.Id))   // filtrado en memoria
+        .Select(s => new SubjectDto { Id = s.Id, Name = s.Name })
         .ToList();
     }
 

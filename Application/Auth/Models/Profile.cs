@@ -18,5 +18,5 @@ public class Profile : BaseModel
     public string Role { get; set; } = "";
 
     [Column("subjects")]
-    public List<Guid> Subjects {get; set;} = [];
+    public Guid[] Subjects {get; set;} = Array.Empty<Guid>();
 }
