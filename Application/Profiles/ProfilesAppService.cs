@@ -217,6 +217,25 @@ public class ProfilesAppService : IProfilesAppService
         return profile;
     }
 
+    public async Task<bool> UpdateProfileSubjects(List<Guid> newSubjects, Guid userId)
+    {
+        try{
+        var profile = await _client
+        .From<Profile>()
+        .Where(p => p.Id == userId)
+        .Single();
+
+        profile!.Subjects = newSubjects.ToArray();
+
+        await _client.From<Profile>().Update(profile);
+
+        return true;
+        } catch
+        {
+            return false;
+        }
+    }
+
     // ---------------- UPDATE----------------
     public async Task<bool> UpdateUserAsync(Guid userId, string? newRole, string? newName)
     {

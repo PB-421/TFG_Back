@@ -6,5 +6,6 @@ public interface IProfilesAppService
     Task<List<Profile>> GetAllProfilesAsync(Guid id);
     Task<List<profileDto>> GetAllProfilesInternaly();
     Task<profileDto?> GetProfileById(Guid id); 
+    Task<bool> UpdateProfileSubjects(List<Guid> newSubjects, Guid userId);
     Task<bool> UpdateUserAsync(Guid userId, string? newRole, string? newName);
 }

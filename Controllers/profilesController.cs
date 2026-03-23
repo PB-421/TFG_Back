@@ -133,6 +133,49 @@ public class ProfilesController : ControllerBase
         }
     }
 
+    [HttpPut("UpdateUserSubjects/{id}")]
+    public async Task<IActionResult> UpdateUserSubjects(Guid id, [FromBody] List<Guid> newSubjectsIds, [FromQuery] Guid userId)
+    {
+        try
+        {
+            var refreshToken = Request.Cookies["sb-refresh-token"];
+            if (string.IsNullOrEmpty(refreshToken) && userId == Guid.Empty)
+                return Unauthorized();
+
+            Profile currentUser;
+            if (!string.IsNullOrEmpty(refreshToken))
+            {
+                currentUser = await _profilesService.GetCurrentUserProfileAsync(refreshToken);
+            }
+            else
+            {
+                currentUser = await _profilesService.GetCurrentUserProfileAsync(userId);
+            }
+
+            if (currentUser == null || currentUser.Role != "student")
+                return Unauthorized("Usuario no autorizado");
+
+            var result = await _profilesService.UpdateProfileSubjects(newSubjectsIds, currentUser.Id);
+
+            if (!result)
+                return BadRequest("No hubo cambios o no autorizado");
+
+            return Ok("Asignaturas actualizadas");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
+    }
+
     // ---------------- UPDATE USER----------------
     [HttpPut("UpdateUser/{id}")]
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateDto dto, [FromQuery] Guid adminId)
