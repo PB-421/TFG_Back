@@ -64,9 +64,9 @@ public class LocationsController : ControllerBase
             if (locationDto == null) return BadRequest("Payload inválido");
 
             var success = await _appService.CreateAsync(locationDto);
-            if (!success) return BadRequest("No se pudo crear la ubicación");
+            if (!success) return BadRequest("El nombre ya existe en otra localizacion");
 
-            return Ok();
+            return Ok("Localizacion creada con exito");
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -90,9 +90,9 @@ public class LocationsController : ControllerBase
             if (locationDto == null) return BadRequest("Payload inválido");
 
             var success = await _appService.UpdateAsync(id, locationDto);
-            if (!success) return NotFound("Location not found or no changes were made");
+            if (!success) return NotFound("El nombre ya existe en otra localizacion");
 
-            return NoContent();
+            return Ok("Localizacion actualizada");
         }
         catch (UnauthorizedAccessException ex)
         {

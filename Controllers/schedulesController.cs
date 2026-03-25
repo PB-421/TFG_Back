@@ -86,23 +86,23 @@ public class SchedulesController : ControllerBase
     {
         try
         {
-            if (dtos == null || dtos.Count == 0) return BadRequest("Payload inválido o lista vacía");
+            if (dtos == null || dtos.Count == 0) return BadRequest("Payload inválido");
 
             foreach (var dto in dtos)
             {
-                var success = await _appService.CreateAsync(dto);
-                if (!success)
-                    return BadRequest("No se pudo crear la sesión. Ya hay una sesion en la misma localizacion en las fechas introducidas");
+                await _appService.CreateAsync(dto);
             }
 
-            return Ok("Sesion creada");
+            return Ok("Sesiones creadas correctamente");
         }
-        catch (UnauthorizedAccessException ex)
+        catch (InvalidOperationException ex)
         {
-            return Forbid(ex.Message);
-        }
-        catch (ArgumentException ex)
-        {
+            if (ex.Message == "LOCATION_OCCUPIED")
+                return BadRequest("El aula o ubicación ya está ocupada en ese horario.");
+            
+            if (ex.Message == "GROUP_OCCUPIED")
+                return BadRequest("El grupo ya tiene otra sesion programada en ese horario.");
+
             return BadRequest(ex.Message);
         }
         catch (Exception ex)
@@ -118,11 +118,19 @@ public class SchedulesController : ControllerBase
         {
             if (dto == null) return BadRequest("Payload inválido");
 
-            var success = await _appService.UpdateAsync(id, dto);
-            if (!success)
-                return BadRequest("No se pudo actualizar. La clase seleccionada esta ocupada a las fechas introducidas");
+            await _appService.UpdateAsync(id, dto);
 
             return Ok("Sesion actualizada");
+        }
+        catch (InvalidOperationException ex)
+        {
+            if (ex.Message == "LOCATION_OCCUPIED")
+                return BadRequest("El aula o ubicación ya está ocupada en ese horario.");
+            
+            if (ex.Message == "GROUP_OCCUPIED")
+                return BadRequest("El grupo ya tiene otra sesion programada en ese horario.");
+
+            return BadRequest(ex.Message);
         }
         catch (UnauthorizedAccessException ex)
         {

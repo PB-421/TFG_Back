@@ -58,6 +58,14 @@ public class LocationsAppService : ILocationsAppService
 
     public async Task<bool> CreateAsync(LocationDto location)
     {
+        var existing = await _client
+            .From<Location>()
+            .Where(l => l.Name == location.Name)
+            .Get();
+
+        if (existing.Models.Any()) 
+            return false;
+
         var newLocation = new Location
         {
             Id = Guid.NewGuid(),
@@ -81,13 +89,23 @@ public class LocationsAppService : ILocationsAppService
         if (currentLocation == null)
             return false;
 
-        bool hasChanges = false;
-
         if (!string.IsNullOrWhiteSpace(location.Name) && currentLocation.Name != location.Name)
         {
+            var nameConflict = await _client
+                .From<Location>()
+                .Where(l => l.Name == location.Name)
+                .Where(l => l.Id != id)
+                .Get();
+
+            if (nameConflict.Models.Any())
+                return false;
+
             currentLocation.Name = location.Name;
-            hasChanges = true;
         }
+
+        bool hasChanges = false; 
+        
+        if (location.Name != null && currentLocation.Name == location.Name) hasChanges = true;
 
         if (location.Capacity.HasValue && currentLocation.Capacity != location.Capacity.Value)
         {
@@ -98,13 +116,10 @@ public class LocationsAppService : ILocationsAppService
         if (!hasChanges)
             return false;
 
-        await _client
-            .From<Location>()
-            .Update(currentLocation);
-            
+        await _client.From<Location>().Update(currentLocation);
         return true;
     }
-
+    
     public async Task<bool> DeleteAsync(Guid id)
     {
         await _client.From<Location>().Where(l => l.Id == id).Delete();

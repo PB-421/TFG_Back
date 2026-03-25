@@ -56,24 +56,30 @@ public class SchedulesAppService : ISchedulesAppService
 
     public async Task<bool> CreateAsync(SchedulesDto dto)
     {
-            // Validación de solapamiento antes de crear
-            if (dto.StartDate.HasValue && dto.EndDate.HasValue && dto.Location!.Id != null)
-            {
-                var isOccupied = await IsLocationOccupiedAsync(dto.Location.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
-                if (isOccupied) return false; 
-            }
+        if (!dto.StartDate.HasValue || !dto.EndDate.HasValue || dto.Location?.Id == null || dto.Group?.Id == null)
+            throw new ArgumentException("Datos incompletos para crear el horario.");
 
-            var newSchedule = new Schedule
-            {
-                Id = dto.Id ?? Guid.NewGuid(),
-                GroupId = dto.Group!.Id ?? Guid.Empty,
-                StartDate = dto.StartDate ?? DateTime.Now,
-                EndDate = dto.EndDate ?? DateTime.Now.AddHours(1),
-                LocationId = dto.Location!.Id ?? Guid.Empty
-            };
+        // 1. Validar si la UBICACIÓN está ocupada
+        var locationOccupied = await IsLocationOccupiedAsync(dto.Location.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
+        if (locationOccupied) 
+            throw new InvalidOperationException("LOCATION_OCCUPIED");
 
-            await _client.From<Schedule>().Insert(newSchedule);
-            return true;
+        // 2. Validar si el GRUPO ya tiene otra clase a esa hora
+        var groupOccupied = await IsGroupOccupiedAsync(dto.Group.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
+        if (groupOccupied)
+            throw new InvalidOperationException("GROUP_OCCUPIED");
+
+        var newSchedule = new Schedule
+        {
+            Id = dto.Id ?? Guid.NewGuid(),
+            GroupId = dto.Group.Id.Value,
+            StartDate = dto.StartDate.Value,
+            EndDate = dto.EndDate.Value,
+            LocationId = dto.Location.Id.Value
+        };
+
+        await _client.From<Schedule>().Insert(newSchedule);
+        return true;
     }
 
     public async Task<List<Guid>> GetLocationsById(Guid groupId)
@@ -90,28 +96,33 @@ public class SchedulesAppService : ISchedulesAppService
     public async Task<bool> UpdateAsync(Guid id, SchedulesDto dto)
     {
         if (id == Guid.Empty) return false;
+
         var response = await _client.From<Schedule>().Where(s => s.Id == id).Get();
         var current = response.Models.FirstOrDefault();
         if (current == null) return false;
 
-        // Si cambian fechas o ubicación, validar disponibilidad
-        if ((dto.StartDate != null && dto.StartDate != current.StartDate) || 
-            (dto.EndDate != null && dto.EndDate != current.EndDate) ||
-            (dto.Location!.Id != null && dto.Location.Id != current.LocationId))
+        var finalLocationId = dto.Location?.Id ?? current.LocationId;
+        var finalGroupId = dto.Group?.Id ?? current.GroupId;
+        var finalStart = dto.StartDate ?? current.StartDate;
+        var finalEnd = dto.EndDate ?? current.EndDate;
+
+        bool datesChanged = (dto.StartDate != null && dto.StartDate != current.StartDate) ||  (dto.EndDate != null && dto.EndDate != current.EndDate);
+        
+        bool locationChanged = dto.Location?.Id != null && dto.Location.Id != current.LocationId;
+        bool groupChanged = dto.Group?.Id != null && dto.Group.Id != current.GroupId;
+
+        if (datesChanged || locationChanged || groupChanged)
         {
-            var isOccupied = await IsLocationOccupiedAsync(
-                dto.Location!.Id ?? current.LocationId, 
-                dto.StartDate ?? current.StartDate, 
-                dto.EndDate ?? current.EndDate,
-                id // Excluimos el registro actual de la validación
-            );
-            if (isOccupied) return false;
+            var locationOccupied = await IsLocationOccupiedAsync(finalLocationId, finalStart, finalEnd, id);
+            if (locationOccupied) throw new InvalidOperationException("LOCATION_OCCUPIED");
+            var groupOccupied = await IsGroupOccupiedAsync(finalGroupId, finalStart, finalEnd, id);
+            if (groupOccupied) throw new InvalidOperationException("GROUP_OCCUPIED");
         }
 
-        current.GroupId = dto.Group!.Id ?? current.GroupId;
-        current.StartDate = dto.StartDate ?? current.StartDate;
-        current.EndDate = dto.EndDate ?? current.EndDate;
-        current.LocationId = dto.Location.Id ?? current.LocationId;
+        current.GroupId = finalGroupId;
+        current.StartDate = finalStart;
+        current.EndDate = finalEnd;
+        current.LocationId = finalLocationId;
 
         await _client.From<Schedule>().Update(current);
         return true;
@@ -132,7 +143,6 @@ public class SchedulesAppService : ISchedulesAppService
 
     public async Task<bool> IsLocationOccupiedAsync(Guid locationId, DateTime start, DateTime end, Guid? excludeId = null)
     {
-        // Lógica de solapamiento: (Inicio1 < Fin2) Y (Fin1 > Inicio2)
         var response = await _client
             .From<Schedule>()
             .Where(s => s.LocationId == locationId)
@@ -143,6 +153,26 @@ public class SchedulesAppService : ISchedulesAppService
         var conflicts = response.Models;
 
         // Si estamos editando, ignoramos el registro que estamos modificando
+        if (excludeId.HasValue)
+        {
+            conflicts = conflicts.Where(c => c.Id != excludeId.Value).ToList();
+        }
+
+        return conflicts.Any();
+    }
+
+    public async Task<bool> IsGroupOccupiedAsync(Guid groupId, DateTime start, DateTime end, Guid? excludeId = null)
+    {
+        var response = await _client
+            .From<Schedule>()
+            .Where(s => s.GroupId == groupId)
+            .Where(s => s.StartDate < end)
+            .Where(s => s.EndDate > start)
+            .Get();
+
+        var conflicts = response.Models;
+
+        // Si estamos editando un registro existente, lo excluimos de la comparación
         if (excludeId.HasValue)
         {
             conflicts = conflicts.Where(c => c.Id != excludeId.Value).ToList();
