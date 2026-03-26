@@ -97,13 +97,7 @@ public class SchedulesController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            if (ex.Message == "LOCATION_OCCUPIED")
-                return BadRequest("El aula o ubicación ya está ocupada en ese horario.");
-            
-            if (ex.Message == "GROUP_OCCUPIED")
-                return BadRequest("El grupo ya tiene otra sesion programada en ese horario.");
-
-            return BadRequest(ex.Message);
+            return BadRequest(FormatConflictMessage(ex.Message));
         }
         catch (Exception ex)
         {
@@ -124,13 +118,7 @@ public class SchedulesController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            if (ex.Message == "LOCATION_OCCUPIED")
-                return BadRequest("El aula o ubicación ya está ocupada en ese horario.");
-            
-            if (ex.Message == "GROUP_OCCUPIED")
-                return BadRequest("El grupo ya tiene otra sesion programada en ese horario.");
-
-            return BadRequest(ex.Message);
+           return BadRequest(FormatConflictMessage(ex.Message));
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -194,4 +182,25 @@ public class SchedulesController : ControllerBase
             return StatusCode(500, $"Error interno: {ex.Message}");
         }
     }
+
+    private string FormatConflictMessage(string exceptionMessage)
+{
+    var parts = exceptionMessage.Split('|');
+    var errorCode = parts[0];
+    
+    if (errorCode == "LOCATION_OCCUPIED")
+    {
+        var name = parts.Length > 1 ? parts[1] : "seleccionada";
+        var time = parts.Length > 2 ? $" a las {parts[2]}" : "";
+        return $"El aula/ubicación '{name}' ya está ocupada{time}.";
+    }
+
+    if (errorCode == "GROUP_OCCUPIED")
+    {
+        var time = parts.Length > 2 ? $" a las {parts[1]}" : "";
+        return $"El grupo seleccionado ya tiene otra sesión programada{time}.";
+    }
+
+    return exceptionMessage;
+}
 }

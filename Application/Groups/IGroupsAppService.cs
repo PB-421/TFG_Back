@@ -1,6 +1,7 @@
 public interface IGroupsAppService
 {
     Task<List<GroupsDto>> GetAllAsync();
+    Task<GroupsDto> GetById(Guid id);
     Task<List<GroupsDto>> GetStudentGroupsByIdAsync(Guid studentId);
     Task<bool> CreateAsync(GroupsDto dto);
     Task<GroupsDto> GetGroupsNamesByIds(Guid id);

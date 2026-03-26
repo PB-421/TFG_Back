@@ -59,15 +59,12 @@ public class SchedulesAppService : ISchedulesAppService
         if (!dto.StartDate.HasValue || !dto.EndDate.HasValue || dto.Location?.Id == null || dto.Group?.Id == null)
             throw new ArgumentException("Datos incompletos para crear el horario.");
 
-        // 1. Validar si la UBICACIÓN está ocupada
         var locationOccupied = await IsLocationOccupiedAsync(dto.Location.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
         if (locationOccupied) 
-            throw new InvalidOperationException("LOCATION_OCCUPIED");
-
-        // 2. Validar si el GRUPO ya tiene otra clase a esa hora
+            if (locationOccupied) throw new InvalidOperationException($"LOCATION_OCCUPIED|{await _locationService.GetLocationById(dto.Location!.Id)}|{dto.StartDate:HH:mm}");
+            
         var groupOccupied = await IsGroupOccupiedAsync(dto.Group.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
-        if (groupOccupied)
-            throw new InvalidOperationException("GROUP_OCCUPIED");
+        if (groupOccupied) throw new InvalidOperationException($"GROUP_OCCUPIED|{dto.StartDate:HH:mm}");;
 
         var newSchedule = new Schedule
         {
@@ -114,9 +111,9 @@ public class SchedulesAppService : ISchedulesAppService
         if (datesChanged || locationChanged || groupChanged)
         {
             var locationOccupied = await IsLocationOccupiedAsync(finalLocationId, finalStart, finalEnd, id);
-            if (locationOccupied) throw new InvalidOperationException("LOCATION_OCCUPIED");
+            if (locationOccupied) throw new InvalidOperationException($"LOCATION_OCCUPIED|{await _locationService.GetLocationById(dto.Location!.Id)}|{dto.StartDate:HH:mm}");
             var groupOccupied = await IsGroupOccupiedAsync(finalGroupId, finalStart, finalEnd, id);
-            if (groupOccupied) throw new InvalidOperationException("GROUP_OCCUPIED");
+            if (groupOccupied) throw new InvalidOperationException($"GROUP_OCCUPIED|{await _groupsService.GetById(id)}|{dto.StartDate:HH:mm}");;
         }
 
         current.GroupId = finalGroupId;
