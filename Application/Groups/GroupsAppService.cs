@@ -43,6 +43,7 @@ public class GroupsAppService : IGroupsAppService
         {
             Id = result.Id,
             Name = result.Name,
+            TeacherId = result.TeacherId
         };
 
         return group;
@@ -117,7 +118,7 @@ public async Task<List<GroupsDto>> GetStudentGroupsByIdAsync(Guid studentId)
     }
 
     // Actualizar un grupo existente a partir del DTO
-    public async Task<bool> UpdateAsync(Guid id, GroupsDto dto)
+    public async Task<bool> UpdateAsync(Guid id, GroupsDto dto, bool algorithm = false)
     {
         if (id == Guid.Empty)
             return false;
@@ -152,12 +153,14 @@ public async Task<List<GroupsDto>> GetStudentGroupsByIdAsync(Guid studentId)
                 hasChanges = true;
             }
 
-            // Comparación de IDs de estudiantes
-            var newStudentIds = dto.Students?.Select(p => p.Id).ToArray() ?? Array.Empty<Guid>();
-            if (!Enumerable.SequenceEqual(current.Students ?? Array.Empty<Guid>(), newStudentIds))
-            {
-                current.Students = newStudentIds;
-                hasChanges = true;
+            if(algorithm){
+                // Comparación de IDs de estudiantes
+                var newStudentIds = dto.Students?.Select(p => p.Id).ToArray() ?? Array.Empty<Guid>();
+                if (!Enumerable.SequenceEqual(current.Students ?? Array.Empty<Guid>(), newStudentIds))
+                {
+                    current.Students = newStudentIds;
+                    hasChanges = true;
+                }
             }
 
             if (!hasChanges) return false;
@@ -193,5 +196,24 @@ public async Task<List<GroupsDto>> GetStudentGroupsByIdAsync(Guid studentId)
             if(student != null) students.Add(student);
         }
         return students;
+    }
+
+    public async Task<List<GroupsDto>> GetTeacherGroupsbyTeacherId(Guid? teacherId)
+    {
+        if(teacherId == null) return new List<GroupsDto>();
+        var result = await _client
+            .From<Group>()
+            .Select("*")
+            .Where(g => g.TeacherId == teacherId)
+            .Get();
+
+        var tasks = result.Models.Select(async g => new GroupsDto
+        {
+            Id = g.Id,
+            Name = g.Name,
+        });
+
+        var dtoArray = await Task.WhenAll(tasks);
+        return dtoArray.ToList();
     }
 }

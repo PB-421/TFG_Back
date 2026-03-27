@@ -60,11 +60,14 @@ public class SchedulesAppService : ISchedulesAppService
             throw new ArgumentException("Datos incompletos para crear el horario.");
 
         var locationOccupied = await IsLocationOccupiedAsync(dto.Location.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
-        if (locationOccupied) 
-            if (locationOccupied) throw new InvalidOperationException($"LOCATION_OCCUPIED|{await _locationService.GetLocationById(dto.Location!.Id)}|{dto.StartDate:HH:mm}");
-            
+        if (locationOccupied) throw new InvalidOperationException($"LOCATION_OCCUPIED|{dto.Location.Name}|{dto.StartDate:HH:mm}");
+
+
         var groupOccupied = await IsGroupOccupiedAsync(dto.Group.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
-        if (groupOccupied) throw new InvalidOperationException($"GROUP_OCCUPIED|{dto.StartDate:HH:mm}");;
+        if (groupOccupied) throw new InvalidOperationException($"GROUP_OCCUPIED|{dto.StartDate:HH:mm}");
+
+        var teacherAvailable = await IsTeacherAvailable(dto.Group.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
+        if (!teacherAvailable) throw new InvalidOperationException($"TEACHER_OCCUPIED|{dto.StartDate:HH:mm}");
 
         var newSchedule = new Schedule
         {
@@ -103,17 +106,21 @@ public class SchedulesAppService : ISchedulesAppService
         var finalStart = dto.StartDate ?? current.StartDate;
         var finalEnd = dto.EndDate ?? current.EndDate;
 
-        bool datesChanged = (dto.StartDate != null && dto.StartDate != current.StartDate) ||  (dto.EndDate != null && dto.EndDate != current.EndDate);
-        
-        bool locationChanged = dto.Location?.Id != null && dto.Location.Id != current.LocationId;
-        bool groupChanged = dto.Group?.Id != null && dto.Group.Id != current.GroupId;
+        bool changed = (dto.StartDate != null && dto.StartDate != current.StartDate) || 
+                    (dto.EndDate != null && dto.EndDate != current.EndDate) ||
+                    (dto.Location?.Id != null && dto.Location.Id != current.LocationId) ||
+                    (dto.Group?.Id != null && dto.Group.Id != current.GroupId);
 
-        if (datesChanged || locationChanged || groupChanged)
+        if (changed)
         {
-            var locationOccupied = await IsLocationOccupiedAsync(finalLocationId, finalStart, finalEnd, id);
-            if (locationOccupied) throw new InvalidOperationException($"LOCATION_OCCUPIED|{await _locationService.GetLocationById(dto.Location!.Id)}|{dto.StartDate:HH:mm}");
-            var groupOccupied = await IsGroupOccupiedAsync(finalGroupId, finalStart, finalEnd, id);
-            if (groupOccupied) throw new InvalidOperationException($"GROUP_OCCUPIED|{await _groupsService.GetById(id)}|{dto.StartDate:HH:mm}");;
+            if (await IsLocationOccupiedAsync(finalLocationId, finalStart, finalEnd, id))
+                throw new InvalidOperationException($"LOCATION_OCCUPIED|{finalStart:HH:mm}");
+
+            if (await IsGroupOccupiedAsync(finalGroupId, finalStart, finalEnd, id))
+                throw new InvalidOperationException($"GROUP_OCCUPIED|{finalStart:HH:mm}");
+
+            if (!await IsTeacherAvailable(finalGroupId, finalStart, finalEnd, id))
+                throw new InvalidOperationException($"TEACHER_OCCUPIED|{finalStart:HH:mm}");
         }
 
         current.GroupId = finalGroupId;
@@ -176,5 +183,28 @@ public class SchedulesAppService : ISchedulesAppService
         }
 
         return conflicts.Any();
+    }
+
+    public async Task<bool> IsTeacherAvailable(Guid groupId, DateTime start, DateTime end, Guid? excludeScheduleId = null)
+    {
+        var response = await _groupsService.GetById(groupId);
+        if(response == null) return false;
+        var teacherGroups = await _groupsService.GetTeacherGroupsbyTeacherId(response.TeacherId);
+        foreach (var group in teacherGroups)
+        {
+            var schedules = await GetSchedulesByGroupIdAsync(group.Id ?? Guid.Empty);
+
+            var hasConflict = schedules.Any(s => 
+                s.Id != excludeScheduleId && 
+                s.StartDate < end && 
+                s.EndDate > start);
+
+            if (hasConflict)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

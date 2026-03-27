@@ -184,23 +184,29 @@ public class SchedulesController : ControllerBase
     }
 
     private string FormatConflictMessage(string exceptionMessage)
-{
-    var parts = exceptionMessage.Split('|');
-    var errorCode = parts[0];
-    
-    if (errorCode == "LOCATION_OCCUPIED")
     {
-        var name = parts.Length > 1 ? parts[1] : "seleccionada";
-        var time = parts.Length > 2 ? $" a las {parts[2]}" : "";
-        return $"El aula/ubicación '{name}' ya está ocupada{time}.";
-    }
+        var parts = exceptionMessage.Split('|');
+        var errorCode = parts[0];
+        
+        if (errorCode == "LOCATION_OCCUPIED")
+        {
+            var time = parts.Length > 2 ? $" a las {parts[2]}" : "";
+            return $"El aula ya está ocupada{time}.";
+        }
 
-    if (errorCode == "GROUP_OCCUPIED")
-    {
-        var time = parts.Length > 2 ? $" a las {parts[1]}" : "";
-        return $"El grupo seleccionado ya tiene otra sesión programada{time}.";
-    }
+        if (errorCode == "GROUP_OCCUPIED")
+        {
+            var time = parts.Length > 1 ? $" a las {parts[1]}" : "";
+            return $"El grupo seleccionado ya tiene otra sesión programada{time}.";
+        }
 
-    return exceptionMessage;
-}
+        // Nuevo bloque para el Profesor
+        if (errorCode == "TEACHER_OCCUPIED")
+        {
+            var time = parts.Length > 1 ? $" a las {parts[1]}" : "";
+            return $"El profesor asignado a este grupo ya tiene otra clase programada en otro grupo{time}.";
+        }
+
+        return exceptionMessage;
+    }
 }

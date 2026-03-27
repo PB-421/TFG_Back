@@ -13,8 +13,9 @@ public class AlgorithmsAppService : IAlgorithmsAppService
         _locationsService = locationService;
     }
 
-public async Task<(bool ok, string? error)> DistributeStudentsRoundRobinAsync(Guid subjectId)
+    public async Task<(bool ok, string? error)> DistributeStudentsRoundRobinAsync(Guid? subjectId)
     {
+        if(subjectId == null) return (false, "Id no valido");
         var groups = (await _groupsService.GetAllAsync())
             .Where(g => g.SubjectId == subjectId)
             .ToList();
@@ -30,7 +31,6 @@ public async Task<(bool ok, string? error)> DistributeStudentsRoundRobinAsync(Gu
                 Email = p.Email,
                 Name = p.Name,
                 Role = p.Role,
-                // Asegúrate de mapear también las asignaturas si es necesario
                 Subjects = p.Subjects?.Select(s => new SubjectDto { 
                     Id = s.Id, 
                     Name = s.Name 
@@ -42,14 +42,12 @@ public async Task<(bool ok, string? error)> DistributeStudentsRoundRobinAsync(Gu
         if (!allStudents.Any())
             return (false, "No hay alumnos matriculados en la asignatura");
 
-        // Alumnos ya asignados (usando IDs)
         var assignedStudentIds = groups
             .SelectMany(g => g.Students ?? new List<profileDto>())
             .Select(p => p.Id)
             .Distinct()
             .ToHashSet();
 
-        // Alumnos sin grupo (objetos completos para poder añadirlos luego)
         var unassignedStudents = allStudents
             .Where(s => !assignedStudentIds.Contains(s.Id))
             .ToList();
@@ -69,7 +67,6 @@ public async Task<(bool ok, string? error)> DistributeStudentsRoundRobinAsync(Gu
         if (freeCapacity.Values.Sum() < unassignedStudents.Count)
             return (false, "No hay suficientes plazas para todos los alumnos");
 
-        // Diccionario para trabajar con los objetos profileDto
         var groupBuckets = groups.ToDictionary(
             g => g.Id!.Value,
             g => g.Students ?? new List<profileDto>()
@@ -101,7 +98,7 @@ public async Task<(bool ok, string? error)> DistributeStudentsRoundRobinAsync(Gu
         foreach (var group in groups)
         {
             group.Students = groupBuckets[group.Id!.Value];
-            await _groupsService.UpdateAsync(group.Id!.Value,group);
+            await _groupsService.UpdateAsync(group.Id!.Value,group,true);
         }
 
         return (true, null);
