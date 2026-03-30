@@ -29,4 +29,7 @@ public class Request : BaseModel
 
     [Column("status")]
     public int Status { get; set; }
+
+    [Column("pdf_path")]
+    public string? PdfPath {get; set;}
 }

@@ -20,7 +20,6 @@ builder.Services.AddScoped<Client>(provider =>
 
 builder.Services.AddControllers();
 
-builder.Services.AddScoped(typeof(ISupabaseService<>), typeof(SupabaseService<>));
 builder.Services.AddScoped<IAuthAppService, AuthAppService>();
 builder.Services.AddScoped<IProfilesAppService, ProfilesAppService>();
 builder.Services.AddScoped<IGroupsAppService, GroupsAppService>();

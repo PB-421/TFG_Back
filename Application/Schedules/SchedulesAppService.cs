@@ -33,8 +33,9 @@ public class SchedulesAppService : ISchedulesAppService
         return dtoArray.ToList();
     }
 
-    public async Task<List<SchedulesDto>> GetSchedulesByGroupIdAsync(Guid groupId)
+    public async Task<List<SchedulesDto>> GetSchedulesByGroupIdAsync(Guid? groupId)
     {
+        if(groupId == Guid.Empty || groupId == null) return new List<SchedulesDto>();
         var result = await _client
             .From<Schedule>()
             .Select("*")
@@ -82,8 +83,9 @@ public class SchedulesAppService : ISchedulesAppService
         return true;
     }
 
-    public async Task<List<Guid>> GetLocationsById(Guid groupId)
+    public async Task<List<Guid>> GetLocationsById(Guid? groupId)
     {
+        if(groupId == Guid.Empty || groupId == null) return new List<Guid>();
         var locations = (await GetAllAsync())
             .Where(g => g.Group!.Id == groupId)
             .Select(g => g.Location!.Id!.Value)

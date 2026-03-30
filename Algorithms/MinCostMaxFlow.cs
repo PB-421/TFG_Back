@@ -15,6 +15,11 @@ public class MinCostMaxFlow
         _graph[to].Add(new Edge(from, 0, -cost, _graph[from].Count - 1));
     }
 
+    public List<List<Edge>> GetGraph()
+{
+    return _graph;
+}
+
     public (int flow, int cost) GetMinCostMaxFlow(int s, int t)
     {
         int flow = 0, cost = 0;
