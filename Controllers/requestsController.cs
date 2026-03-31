@@ -33,6 +33,21 @@ public class RequestsController : ControllerBase
         }
     }
 
+    [HttpGet("student/{studentId}")]
+    public async Task<IActionResult> GetByStudentId(Guid studentId)
+    {
+        try
+        {
+            // Asegúrate de que tu AppService tenga este método
+            var requests = await _appService.GetByStudentId(studentId);
+            return Ok(requests);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error al obtener peticiones: {ex.Message}");
+        }
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(Guid id)
     {

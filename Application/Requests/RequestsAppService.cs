@@ -32,6 +32,24 @@ public class RequestsAppService : IRequestsAppService
         }).ToList();
     }
 
+    public async Task<List<RequestDto>> GetByStudentId(Guid StudentId)
+    {
+        var response = await _client.From<Request>().Select("*").Where(r => r.StudentId == StudentId).Get();
+
+        return response.Models.Select(r => new RequestDto
+        {
+            Id = r.Id,
+            StudentId = r.StudentId,
+            OriginGroupId = r.OriginGroupId,
+            DestinationGroupId = r.DestinationGroupId,
+            Weight = r.Weight,
+            StudentComment = r.StudentComment,
+            TeacherComment = r.TeacherComment,
+            Status = r.Status,
+            PdfPath = r.PdfPath
+        }).ToList();
+    }
+
     public async Task<RequestDto> GetByIdAsync(Guid id)
     {
         var result = await _client
@@ -56,16 +74,24 @@ public class RequestsAppService : IRequestsAppService
         };
     }
 
-    public async Task<bool> CreateAsync(RequestDto request)
+    public async Task<bool> studentHasGroupRequest(Guid studentId, Guid OriginGroupId)
     {
         var existing = await _client
             .From<Request>()
-            .Where(r => r.StudentId == request.StudentId)
-            .Where(r => r.Status == 0) // Asumiendo 0 como 'Pendiente'
+            .Where(r => r.StudentId == studentId)
+            .Where(r => r.Status == 0)
+            .Where(r => r.OriginGroupId == OriginGroupId)
             .Get();
 
         if (existing.Models.Any())
-            return false;
+            return true;
+        
+        return false;
+    }
+
+    public async Task<bool> CreateAsync(RequestDto request)
+    {
+        if(await studentHasGroupRequest(request.StudentId, request.OriginGroupId)) return false;
 
         var newRequest = new Request
         {
@@ -126,6 +152,54 @@ public class RequestsAppService : IRequestsAppService
 
         if (pendingRequests.Count == 0)
             return (true, "No hay solicitudes pendientes para procesar.");
+
+        // 1.5: Detecion de swap entre grupos
+        var swapsToAccept = new HashSet<Guid>();
+        var usedInSwap = new HashSet<Guid>();
+
+        for (int i = 0; i < pendingRequests.Count; i++)
+        {
+            var r1 = pendingRequests[i];
+
+            if (usedInSwap.Contains(r1.Id))
+                continue;
+
+            for (int j = i + 1; j < pendingRequests.Count; j++)
+            {
+                var r2 = pendingRequests[j];
+
+                if (usedInSwap.Contains(r2.Id))
+                    continue;
+
+                bool isSwap =
+                    r1.OriginGroupId == r2.DestinationGroupId &&
+                    r1.DestinationGroupId == r2.OriginGroupId;
+
+                if (isSwap)
+                {
+                    // Marcar ambos como usados
+                    usedInSwap.Add(r1.Id);
+                    usedInSwap.Add(r2.Id);
+
+                    swapsToAccept.Add(r1.Id);
+                    swapsToAccept.Add(r2.Id);
+
+                    break;
+                }
+            }
+        }
+
+        foreach (var req in pendingRequests.Where(r => swapsToAccept.Contains(r.Id)))
+        {
+            req.Status = 2; // Aceptada
+            req.TeacherComment = "Aceptada por intercambio automático.";
+
+            await UpdateAsync(req.Id, req);
+        }
+
+        pendingRequests = pendingRequests
+            .Where(r => !swapsToAccept.Contains(r.Id))
+            .ToList();
 
         // 2. Obtener grupos y calcular capacidades libres
         var groups = (await _groupsRepo.GetAllAsync()).ToList();
@@ -206,7 +280,7 @@ public class RequestsAppService : IRequestsAppService
                 }
             }
 
-            // Actualizamos el estado: 2 = Aceptada, 0 = sigue pendiente (no cupo en el flujo óptimo)
+            // Actualizamos el estado: 2 = Aceptada, 0 = sigue pendiente
             req.Status = accepted ? 2 : 0;
             req.TeacherComment = accepted ? "Aceptada por optimización de cupos." : "Sin cupo disponible en esta iteración.";
             
@@ -220,7 +294,7 @@ public class RequestsAppService : IRequestsAppService
     {
         // 1. Obtener solicitudes aceptadas (Status 1)
         var allRequests = await GetAllAsync();
-        var acceptedRequests = allRequests.Where(r => r.Status == 1).ToList();
+        var acceptedRequests = allRequests.Where(r => r.Status == 2).ToList();
 
         if (!acceptedRequests.Any())
             return (true, "No hay solicitudes aceptadas para aplicar.");
