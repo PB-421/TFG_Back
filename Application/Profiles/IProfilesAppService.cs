@@ -1,6 +1,7 @@
 public interface IProfilesAppService
 {
     Task<Profile?> GetCurrentUserProfileAsync(string refreshToken);
+    Task<SessionDto?> GetCurrentSessionAsync(string refreshToken);
     Task<Profile?> GetCurrentUserProfileAsync(Guid id);
     Task<List<Profile>> GetAllProfilesAsync(string refreshToken);
     Task<List<Profile>> GetAllProfilesAsync(Guid id);

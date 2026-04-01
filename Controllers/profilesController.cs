@@ -62,6 +62,28 @@ public class ProfilesController : ControllerBase
         }
     }
 
+    [HttpGet("GetSession")]
+    public async Task<IActionResult> GetSession()
+    {
+        try
+        {
+            var refreshToken = Request.Cookies["sb-refresh-token"];
+            if (string.IsNullOrEmpty(refreshToken))
+                return Unauthorized("No hay sesión activa");
+
+            var session = await _profilesService.GetCurrentSessionAsync(refreshToken);
+
+            if (session == null)
+                return Unauthorized("Sesión inválida o expirada");
+
+            return Ok(session);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error: {ex.Message}");
+        }
+    }
+
     [HttpGet("GetUser")]
     public async Task<IActionResult> GetUser([FromQuery] Guid id)
     {

@@ -71,6 +71,69 @@ public class ProfilesAppService : IProfilesAppService
         }
     }
 
+    public async Task<SessionDto?> GetCurrentSessionAsync(string refreshToken)
+    {
+        if (string.IsNullOrEmpty(refreshToken))
+            return null;
+
+        try
+        {
+            var http = new HttpClient();
+
+            http.DefaultRequestHeaders.Add(
+                "apikey",
+                Environment.GetEnvironmentVariable("DB_KEY")!
+            );
+
+            var body = new
+            {
+                refresh_token = refreshToken
+            };
+
+            var content = new StringContent(
+                JsonSerializer.Serialize(body),
+                Encoding.UTF8,
+                "application/json"
+            );
+
+            var response = await http.PostAsync(
+                Environment.GetEnvironmentVariable("DB_URL") +
+                "/auth/v1/token?grant_type=refresh_token",
+                content
+            );
+
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            var json = await response.Content.ReadAsStringAsync();
+
+            var session = JsonSerializer.Deserialize<SupabaseRefreshResponse>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            );
+
+            if (session == null || session.user == null)
+                return null;
+
+            var userId = Guid.Parse(session.user.id);
+
+            var profile = await _client
+                .From<Profile>()
+                .Where(p => p.Id == userId)
+                .Single();
+
+            return new SessionDto
+            {
+                AccessToken = session.access_token,
+                RefreshToken = session.refresh_token
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async Task<Profile?> GetCurrentUserProfileAsync(Guid id)
     {
         try
