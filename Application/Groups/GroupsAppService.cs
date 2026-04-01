@@ -42,6 +42,7 @@ public class GroupsAppService : IGroupsAppService
         var group = new GroupsDto
         {
             Id = result.Id,
+            SubjectId = result.SubjectId,
             Name = result.Name,
             TeacherId = result.TeacherId
         };

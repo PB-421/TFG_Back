@@ -38,7 +38,6 @@ public class RequestsController : ControllerBase
     {
         try
         {
-            // Asegúrate de que tu AppService tenga este método
             var requests = await _appService.GetByStudentId(studentId);
             return Ok(requests);
         }
@@ -54,7 +53,6 @@ public class RequestsController : ControllerBase
         try
         {
             var request = await _appService.GetByIdAsync(id);
-            // Validamos si el objeto devuelto es nulo o si es un DTO vacío (según tu lógica de Service)
             if (request == null || request.Id == Guid.Empty) 
                 return NotFound("Solicitud no encontrada");
                 
@@ -132,6 +130,28 @@ public class RequestsController : ControllerBase
         try
         {
             var success = await _appService.DeleteAsync(id);
+            return success ? NoContent() : NotFound("Solicitud no encontrada");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
+    }
+
+    [HttpDelete("completed")]
+    public async Task<IActionResult> DeleteCompleted(Guid id)
+    {
+        try
+        {
+            var success = await _appService.DeleteCompletedRequest();
             return success ? NoContent() : NotFound("Solicitud no encontrada");
         }
         catch (UnauthorizedAccessException ex)

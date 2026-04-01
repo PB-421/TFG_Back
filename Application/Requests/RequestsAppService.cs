@@ -144,6 +144,26 @@ public class RequestsAppService : IRequestsAppService
         return true;
     }
 
+    public async Task<bool> DeleteCompletedRequest()
+    {
+        var response = await _client
+            .From<Request>()
+            .Select("Id")
+            .Where(r => r.Status == 2 || r.Status == 1)
+            .Get();
+
+        var requests = response.Models.Select(r => new RequestDto
+        {
+            Id = r.Id
+        }).ToList();
+
+        foreach (var request in requests)
+        {
+            await _client.From<Request>().Where(r => r.Id == request.Id).Delete();
+        }
+        return true;
+    }
+
     public async Task<(bool ok, string? error)> ResolveWithMinCostFlowAsync()
     {
         // 1. Obtener todas las solicitudes pendientes (Status 0)

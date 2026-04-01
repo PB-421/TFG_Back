@@ -6,6 +6,7 @@ public interface IRequestsAppService
     Task<bool> CreateAsync(RequestDto request);
     Task<bool> UpdateAsync(Guid id, RequestDto request);
     Task<bool> DeleteAsync(Guid id);
+    Task<bool> DeleteCompletedRequest();
     Task<(bool ok, string? error)> ResolveWithMinCostFlowAsync();
     Task<(bool ok, string? error)> ApplyAcceptedRequestsAsync();
 }
