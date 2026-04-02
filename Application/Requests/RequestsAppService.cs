@@ -138,8 +138,47 @@ public class RequestsAppService : IRequestsAppService
         return true;
     }
 
+    private string GetRelativePathFromUrl(string url)
+    {
+        if (string.IsNullOrEmpty(url)) return String.Empty;
+        
+        const string bucketName = "RequestsPdfs/";
+        var index = url.IndexOf(bucketName);
+        if (index != -1)
+        {
+            return url.Substring(index + bucketName.Length);
+        }
+        return String.Empty;
+    }
+
+    private async Task DeletePdfFromStorage(string pdfPath)
+    {
+        var relativePath = GetRelativePathFromUrl(pdfPath);
+        if (!string.IsNullOrEmpty(relativePath))
+        {
+            try 
+            {
+                await _client.Storage
+                    .From("RequestsPdfs")
+                    .Remove(new List<string> { relativePath });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error borrando archivo de storage: {ex.Message}");
+            }
+        }
+    }
+
     public async Task<bool> DeleteAsync(Guid id)
     {
+        var request = await GetByIdAsync(id);
+        if (request == null || request.Id == Guid.Empty) return false;
+
+        if (!string.IsNullOrEmpty(request.PdfPath))
+        {
+            await DeletePdfFromStorage(request.PdfPath);
+        }
+
         await _client.From<Request>().Where(r => r.Id == id).Delete();
         return true;
     }
@@ -148,17 +187,21 @@ public class RequestsAppService : IRequestsAppService
     {
         var response = await _client
             .From<Request>()
-            .Select("Id")
+            .Select("Id, PdfPath") // IMPORTANTE: traer el PdfPath
             .Where(r => r.Status == 2 || r.Status == 1)
             .Get();
 
-        var requests = response.Models.Select(r => new RequestDto
-        {
-            Id = r.Id
-        }).ToList();
+        var requests = response.Models;
 
         foreach (var request in requests)
         {
+            // 2. Borrar PDF de cada una si tiene
+            if (!string.IsNullOrEmpty(request.PdfPath))
+            {
+                await DeletePdfFromStorage(request.PdfPath);
+            }
+            
+            // 3. Borrar de la DB
             await _client.From<Request>().Where(r => r.Id == request.Id).Delete();
         }
         return true;
