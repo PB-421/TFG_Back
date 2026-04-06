@@ -130,7 +130,7 @@ public class RequestsController : ControllerBase
         try
         {
             var success = await _appService.DeleteAsync(id);
-            return success ? NoContent() : NotFound("Solicitud no encontrada");
+            return success ? Ok("Solicitud borrada") : NotFound("Solicitud no encontrada");
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -147,12 +147,12 @@ public class RequestsController : ControllerBase
     }
 
     [HttpDelete("completed")]
-    public async Task<IActionResult> DeleteCompleted(Guid id)
+    public async Task<IActionResult> DeleteCompleted()
     {
         try
         {
-            var success = await _appService.DeleteCompletedRequest();
-            return success ? NoContent() : NotFound("Solicitud no encontrada");
+            await _appService.DeleteCompletedRequest();
+            return Ok("Las solicitudes completadas se han borrado correctamente");
         }
         catch (UnauthorizedAccessException ex)
         {
