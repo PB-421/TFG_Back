@@ -254,7 +254,7 @@ public class AlgorithmsAppService : IAlgorithmsAppService
 
     public async Task<(bool ok, string? error)> ApplyAcceptedRequestsAsync()
     {
-        // 1. Obtener solicitudes aceptadas (Status 1)
+        // 1. Obtener solicitudes aceptadas (Status 2)
         var allRequests = await _requestsService.GetAllAsync();
         var acceptedRequests = allRequests.Where(r => r.Status == 2).ToList();
 
@@ -284,7 +284,6 @@ public class AlgorithmsAppService : IAlgorithmsAppService
                 // --- 2. Agregar al destino ---
                 if (dest.Students != null && !dest.Students.Any(s => s.Id == r.StudentId))
                 {
-                    // Agregamos un profileDto básico (solo el ID es crítico para el UpdateAsync que tienes)
                     dest.Students.Add(new profileDto { Id = r.StudentId });
                     modifiedGroupIds.Add(dest.Id!.Value);
                 }
@@ -296,12 +295,10 @@ public class AlgorithmsAppService : IAlgorithmsAppService
             }
         }
 
-        // 2. Actualizar solo los grupos que realmente cambiaron
         foreach (var groupId in modifiedGroupIds)
         {
             var groupDto = groups.First(g => g.Id == groupId);
-            // IMPORTANTE: Pasamos 'true' en el parámetro algorithm para que UpdateAsync procese los Students
-            await _groupsService.UpdateAsync(groupId, groupDto, true);
+            await _groupsService.UpdateAsync(groupId, groupDto);
         }
 
         return (true, "Cambios aplicados en los listados de alumnos.");

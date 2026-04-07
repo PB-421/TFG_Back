@@ -154,8 +154,26 @@ public async Task<List<GroupsDto>> GetStudentGroupsByIdAsync(Guid studentId)
                 hasChanges = true;
             }
 
+            if (dto.Students != null && algorithm == false)
+            {
+                var newStudentIds = dto.Students
+                    .Select(p => p.Id)
+                    .Where(id => id != Guid.Empty)
+                    .OrderBy(id => id)
+                    .ToArray();
+
+                var currentIds = (current.Students ?? Array.Empty<Guid>())
+                    .OrderBy(id => id)
+                    .ToArray();
+
+                if (!Enumerable.SequenceEqual(currentIds, newStudentIds))
+                {
+                    current.Students = newStudentIds;
+                    hasChanges = true;
+                }
+            }
+
             if(algorithm){
-                // Comparación de IDs de estudiantes
                 var newStudentIds = dto.Students?.Select(p => p.Id).ToArray() ?? Array.Empty<Guid>();
                 if (!Enumerable.SequenceEqual(current.Students ?? Array.Empty<Guid>(), newStudentIds))
                 {
