@@ -35,7 +35,8 @@ public class AlgorithmsAppService : IAlgorithmsAppService
                 Role = p.Role,
                 Subjects = p.Subjects?.Select(s => new SubjectDto { 
                     Id = s.Id, 
-                    Name = s.Name 
+                    Name = s.Name,
+                    Course = s.Course 
                 }).ToList() ?? new List<SubjectDto>()
             })
             .Where(p => p.Role == "student" && p.Subjects.Any(s => s.Id == subjectId))

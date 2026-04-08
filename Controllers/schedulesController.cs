@@ -93,7 +93,7 @@ public class SchedulesController : ControllerBase
                 await _appService.CreateAsync(dto);
             }
 
-            return Ok("Sesiones creadas correctamente");
+            return Ok("Sesion creada correctamente");
         }
         catch (InvalidOperationException ex)
         {
@@ -140,8 +140,8 @@ public class SchedulesController : ControllerBase
         try
         {
             var success = await _appService.DeleteAsync(id);
-            if (!success) return NotFound("Horario no encontrado");
-            return Ok("Horario borrado");
+            if (!success) return NotFound("Sesion no encontrada");
+            return Ok("Sesion borrada correctamente");
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -200,11 +200,16 @@ public class SchedulesController : ControllerBase
             return $"El grupo seleccionado ya tiene otra sesión programada{time}.";
         }
 
-        // Nuevo bloque para el Profesor
         if (errorCode == "TEACHER_OCCUPIED")
         {
             var time = parts.Length > 1 ? $" a las {parts[1]}" : "";
             return $"El profesor asignado a este grupo ya tiene otra clase programada en otro grupo{time}.";
+        }
+
+        if (errorCode == "SUBJECT_CONFLICT")
+        {
+            var time = parts.Length > 1 ? $" a las {parts[1]}" : "";
+            return $"No se puede usar la fecha seleccionada ya que una asignatura del mismo curso tiene sesion{time}";
         }
 
         return exceptionMessage;

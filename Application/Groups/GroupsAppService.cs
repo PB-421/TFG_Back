@@ -4,11 +4,13 @@ public class GroupsAppService : IGroupsAppService
 {
     private readonly Client _client;
     private readonly IProfilesAppService _userRepo;
+    private readonly ISubjectsAppService _subjectsService;
 
-    public GroupsAppService(Client client, IProfilesAppService userRepo)
+    public GroupsAppService(Client client, IProfilesAppService userRepo, ISubjectsAppService subjectService)
     {
         _client = client;
         _userRepo = userRepo;
+        _subjectsService = subjectService;
     }
 
     public async Task<List<GroupsDto>> GetAllAsync()
@@ -234,5 +236,40 @@ public async Task<List<GroupsDto>> GetStudentGroupsByIdAsync(Guid studentId)
 
         var dtoArray = await Task.WhenAll(tasks);
         return dtoArray.ToList();
+    }
+
+    public async Task<List<GroupsDto>> GetSubjectGroupsbySubjectId(Guid? subjectId)
+    {
+        if(subjectId == null) return new List<GroupsDto>();
+        var result = await _client
+            .From<Group>()
+            .Select("*")
+            .Where(g => g.SubjectId == subjectId)
+            .Get();
+
+        var tasks = result.Models.Select(async g => new GroupsDto
+        {
+            Id = g.Id,
+            Name = g.Name,
+        });
+
+        var dtoArray = await Task.WhenAll(tasks);
+        return dtoArray.ToList();
+    }
+
+    public async Task<List<GroupsDto>> GetSameCourseGroups(Guid? subjectId)
+    {
+        if (subjectId == null) return new List<GroupsDto>();
+
+        var subjectIds = await _subjectsService.GetSameCourseSubjectsBySubjectId(subjectId);
+
+        if (subjectIds == null || !subjectIds.Any()) return new List<GroupsDto>();
+
+        var tasks = subjectIds.Select(id => GetSubjectGroupsbySubjectId(id));
+
+        var results = await Task.WhenAll(tasks);
+
+        // Aplanar la lista de listas (List<List<GroupsDto>>) en una sola lista
+        return results.SelectMany(g => g).ToList();
     }
 }

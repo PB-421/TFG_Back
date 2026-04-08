@@ -121,15 +121,12 @@ public class RequestsAppService : IRequestsAppService
 
         if (current == null)
             return false;
-
-        // Lógica de detección de cambios
+            
         bool hasChanges = false;
 
         if (current.Status != request.Status) { current.Status = request.Status; hasChanges = true; }
         if (current.TeacherComment != request.TeacherComment) { current.TeacherComment = request.TeacherComment; hasChanges = true; }
         if (current.Weight != request.Weight) { current.Weight = request.Weight; hasChanges = true; }
-        
-        // Puedes agregar más campos según necesites permitir su edición
 
         if (!hasChanges)
             return false;

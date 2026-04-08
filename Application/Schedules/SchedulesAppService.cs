@@ -70,6 +70,9 @@ public class SchedulesAppService : ISchedulesAppService
         var teacherAvailable = await IsTeacherAvailable(dto.Group.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
         if (!teacherAvailable) throw new InvalidOperationException($"TEACHER_OCCUPIED|{dto.StartDate:HH:mm}");
 
+        var subjectsConflic = await HasConflicWithSubjectsFromTheSameCourse(dto.Group.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
+        if (subjectsConflic) throw new InvalidOperationException($"SUBJECT_CONFLICT|{dto.StartDate:HH:mm}");
+
         var newSchedule = new Schedule
         {
             Id = dto.Id ?? Guid.NewGuid(),
@@ -123,6 +126,9 @@ public class SchedulesAppService : ISchedulesAppService
 
             if (!await IsTeacherAvailable(finalGroupId, finalStart, finalEnd, id))
                 throw new InvalidOperationException($"TEACHER_OCCUPIED|{finalStart:HH:mm}");
+
+            if (!await HasConflicWithSubjectsFromTheSameCourse(finalGroupId, finalStart, finalEnd, id))
+                throw new InvalidOperationException($"SUBJECT_CONFLICT|{finalStart:HH:mm}");
         }
 
         current.GroupId = finalGroupId;
@@ -208,5 +214,28 @@ public class SchedulesAppService : ISchedulesAppService
         }
 
         return true;
+    }
+
+    public async Task<bool> HasConflicWithSubjectsFromTheSameCourse(Guid groupId, DateTime start, DateTime end, Guid? excludeScheduleId = null)
+    {
+        var response = await _groupsService.GetById(groupId);
+        if(response == null) return false;
+        var subjectGroups = await _groupsService.GetSameCourseGroups(response.SubjectId);
+        foreach (var group in subjectGroups)
+        {
+            var schedules = await GetSchedulesByGroupIdAsync(group.Id ?? Guid.Empty);
+
+            var hasConflict = schedules.Any(s => 
+                s.Id != excludeScheduleId && 
+                s.StartDate < end && 
+                s.EndDate > start);
+
+            if (hasConflict)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

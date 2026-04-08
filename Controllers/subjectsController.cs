@@ -23,7 +23,8 @@ public class SubjectsController : ControllerBase
             var dtoList = listSubjects.Select(s => new SubjectDto
             {
                 Id = s.Id,
-                Name = s.Name
+                Name = s.Name,
+                Course = s.Course
             }).ToList();
 
             return Ok(dtoList);

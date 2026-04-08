@@ -10,4 +10,7 @@ public class Subject : BaseModel
 
     [Column("name")]
     public string Name { get; set; } = string.Empty;
+
+    [Column("course")]
+    public int Course {get; set;} = 1;
 }
