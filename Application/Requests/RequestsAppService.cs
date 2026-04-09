@@ -50,6 +50,28 @@ public class RequestsAppService : IRequestsAppService
         }).ToList();
     }
 
+    public async Task<List<RequestDto>> GetByTeacherId(Guid TeacherId)
+    {
+        var groups = await _groupsRepo.GetTeacherGroupsbyTeacherId(TeacherId);
+        var groupIds = groups.Select(g => g.Id).ToList();
+        var response = await _client.From<Request>().Where(r => r.Status == 0).Get();
+
+        return response.Models
+        .Where(r => groupIds.Contains(r.OriginGroupId)) 
+        .Select(r => new RequestDto
+        {
+            Id = r.Id,
+            StudentId = r.StudentId,
+            OriginGroupId = r.OriginGroupId,
+            DestinationGroupId = r.DestinationGroupId,
+            Weight = r.Weight,
+            StudentComment = r.StudentComment,
+            TeacherComment = r.TeacherComment,
+            Status = r.Status,
+            PdfPath = r.PdfPath
+        }).ToList();
+    }
+
     public async Task<RequestDto> GetByIdAsync(Guid id)
     {
         var result = await _client
@@ -132,6 +154,76 @@ public class RequestsAppService : IRequestsAppService
             return false;
 
         await _client.From<Request>().Update(current);
+        return true;
+    }
+
+    public async Task<bool> UpdateFromTeacherAsync(Guid id, RequestUpdateDto request)
+    {
+        var response = await _client
+            .From<Request>()
+            .Where(r => r.Id == id)
+            .Get();
+
+        var current = response.Models.FirstOrDefault();
+
+        if (current == null)
+            return false;
+            
+        bool hasChanges = false;
+
+        if (current.Status != request.Status) { current.Status = request.Status ?? 0; hasChanges = true; }
+        if (current.TeacherComment != request.TeacherComment) { current.TeacherComment = request.TeacherComment; hasChanges = true; }
+
+        if (!hasChanges)
+            return false;
+
+        await _client.From<Request>().Update(current);
+        if(request.Status == 2)
+        {
+            var groups = await _groupsRepo.GetAllAsync();
+
+            var modifiedGroupIds = new HashSet<Guid>();
+
+            var actualRequest = new RequestDto
+            {
+                Id = current.Id,
+                StudentId = current.StudentId,
+                OriginGroupId = current.OriginGroupId,
+                DestinationGroupId = current.DestinationGroupId,
+                Weight = current.Weight,
+                StudentComment = current.StudentComment,
+                TeacherComment = current.TeacherComment,
+                Status = current.Status,
+                PdfPath = current.PdfPath
+            };
+
+
+            var origin = groups.FirstOrDefault(g => g.Id == actualRequest.OriginGroupId);
+            var dest = groups.FirstOrDefault(g => g.Id == actualRequest.DestinationGroupId);
+
+            if (origin != null && dest != null)
+            {
+                // --- 1. Remover del origen ---
+                if (origin.Students != null && origin.Students.Any(s => s.Id == actualRequest.StudentId))
+                {
+                    origin.Students = origin.Students.Where(s => s.Id != actualRequest.StudentId).ToList();
+                    modifiedGroupIds.Add(origin.Id!.Value);
+                }
+
+                // --- 2. Agregar al destino ---
+                if (dest.Students != null && !dest.Students.Any(s => s.Id == actualRequest.StudentId))
+                {
+                    dest.Students.Add(new profileDto { Id = actualRequest.StudentId });
+                    modifiedGroupIds.Add(dest.Id!.Value);
+                }
+            }
+            
+            foreach (var groupId in modifiedGroupIds)
+            {
+                var groupDto = groups.First(g => g.Id == groupId);
+                await _groupsRepo.UpdateAsync(groupId, groupDto);
+            }
+        }
         return true;
     }
 

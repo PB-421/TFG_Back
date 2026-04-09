@@ -47,6 +47,20 @@ public class RequestsController : ControllerBase
         }
     }
 
+    [HttpGet("teacher/{teacherId}")]
+    public async Task<IActionResult> GetByTeacherId(Guid teacherId)
+    {
+        try
+        {
+            var requests = await _appService.GetByTeacherId(teacherId);
+            return Ok(requests);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error al obtener peticiones: {ex.Message}");
+        }
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(Guid id)
     {
@@ -106,6 +120,32 @@ public class RequestsController : ControllerBase
             if (requestDto == null) return BadRequest("Payload inválido");
 
             var success = await _appService.UpdateAsync(id, requestDto);
+            if (!success) return NotFound("No se encontró la solicitud o no hubo cambios para actualizar");
+
+            return Ok("Solicitud actualizada");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
+    }
+
+    [HttpPut("teacherUpdate/{id}")]
+    public async Task<IActionResult> UpdateFromTeacher(Guid id, [FromBody] RequestUpdateDto requestDto)
+    {
+        try
+        {
+            if (requestDto == null) return BadRequest("Payload inválido");
+
+            var success = await _appService.UpdateFromTeacherAsync(id, requestDto);
             if (!success) return NotFound("No se encontró la solicitud o no hubo cambios para actualizar");
 
             return Ok("Solicitud actualizada");
