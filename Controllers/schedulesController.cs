@@ -81,6 +81,28 @@ public class SchedulesController : ControllerBase
         }
     }
 
+    [HttpGet("hasLocation/{locationId}")]
+    public async Task<IActionResult> hasLocation(Guid locationId)
+    {
+        try
+        {
+            var exists = await _appService.LocationInUse(locationId);
+            return Ok(exists);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] List<SchedulesDto> dtos)
     {

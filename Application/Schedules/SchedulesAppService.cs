@@ -98,6 +98,17 @@ public class SchedulesAppService : ISchedulesAppService
         return locations;
     }
 
+    public async Task<bool> LocationInUse(Guid? LocationId)
+    {
+        if(LocationId == null || LocationId == Guid.Empty) return false;
+        var response = await _client
+        .From<Schedule>()
+        .Where(s => s.LocationId == LocationId && s.EndDate > DateTime.Now)
+        .Get();
+
+        return response.Models.Any();
+    }
+
     public async Task<bool> UpdateAsync(Guid id, SchedulesDto dto)
     {
         if (id == Guid.Empty) return false;
