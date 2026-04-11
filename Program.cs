@@ -28,6 +28,7 @@ builder.Services.AddScoped<ISubjectsAppService, SubjectsAppService>();
 builder.Services.AddScoped<ILocationsAppService, LocationsAppService>();
 builder.Services.AddScoped<ISchedulesAppService, SchedulesAppService>();
 builder.Services.AddScoped<IAlgorithmsAppService, AlgorithmsAppService>();
+builder.Services.AddScoped<IControlAppService, ControlAppService>();
 
 // ✅ CORS CORRECTO PARA COOKIES
 builder.Services.AddCors(options =>
