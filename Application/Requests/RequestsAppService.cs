@@ -4,14 +4,10 @@ public class RequestsAppService : IRequestsAppService
     private readonly Client _client;
 
     private readonly IGroupsAppService _groupsRepo;
-    private readonly ILocationsAppService _locationService;
-    private readonly ISchedulesAppService _schedulesRepo;
-    public RequestsAppService(Client client, IGroupsAppService groupsRepo, ISchedulesAppService schedulesRepo, ILocationsAppService locationService)
+    public RequestsAppService(Client client, IGroupsAppService groupsRepo)
     {
         _client = client;
         _groupsRepo = groupsRepo;
-        _schedulesRepo = schedulesRepo;
-        _locationService = locationService;
     }
 
     public async Task<List<RequestDto>> GetAllAsync()

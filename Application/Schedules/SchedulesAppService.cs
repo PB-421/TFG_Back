@@ -61,17 +61,17 @@ public class SchedulesAppService : ISchedulesAppService
             throw new ArgumentException("Datos incompletos para crear el horario.");
 
         var locationOccupied = await IsLocationOccupiedAsync(dto.Location.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
-        if (locationOccupied) throw new InvalidOperationException($"LOCATION_OCCUPIED|{dto.Location.Name}|{dto.StartDate:HH:mm}");
+        if (locationOccupied) throw new InvalidOperationException($"LOCATION_OCCUPIED|{dto.Location.Name}|{dto.StartDate:dd/MM HH:mm}");
 
 
         var groupOccupied = await IsGroupOccupiedAsync(dto.Group.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
-        if (groupOccupied) throw new InvalidOperationException($"GROUP_OCCUPIED|{dto.StartDate:HH:mm}");
+        if (groupOccupied) throw new InvalidOperationException($"GROUP_OCCUPIED|{dto.StartDate:dd/MM HH:mm}");
 
         var teacherAvailable = await IsTeacherAvailable(dto.Group.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
-        if (!teacherAvailable) throw new InvalidOperationException($"TEACHER_OCCUPIED|{dto.StartDate:HH:mm}");
+        if (!teacherAvailable) throw new InvalidOperationException($"TEACHER_OCCUPIED|{dto.StartDate:dd/MM HH:mm}");
 
         var subjectsConflic = await HasConflicWithSubjectsFromTheSameCourse(dto.Group.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
-        if (subjectsConflic) throw new InvalidOperationException($"SUBJECT_CONFLICT|{dto.StartDate:HH:mm}");
+        if (subjectsConflic) throw new InvalidOperationException($"SUBJECT_CONFLICT|{dto.StartDate:dd/MM HH:mm}");
 
         var newSchedule = new Schedule
         {
@@ -130,16 +130,16 @@ public class SchedulesAppService : ISchedulesAppService
         if (changed)
         {
             if (await IsLocationOccupiedAsync(finalLocationId, finalStart, finalEnd, id))
-                throw new InvalidOperationException($"LOCATION_OCCUPIED|{finalStart:HH:mm}");
+                throw new InvalidOperationException($"LOCATION_OCCUPIED|{finalStart:dd/MM HH:mm}");
 
             if (await IsGroupOccupiedAsync(finalGroupId, finalStart, finalEnd, id))
-                throw new InvalidOperationException($"GROUP_OCCUPIED|{finalStart:HH:mm}");
+                throw new InvalidOperationException($"GROUP_OCCUPIED|{finalStart:dd/MM HH:mm}");
 
             if (!await IsTeacherAvailable(finalGroupId, finalStart, finalEnd, id))
-                throw new InvalidOperationException($"TEACHER_OCCUPIED|{finalStart:HH:mm}");
+                throw new InvalidOperationException($"TEACHER_OCCUPIED|{finalStart:dd/MM HH:mm}");
 
-            if (!await HasConflicWithSubjectsFromTheSameCourse(finalGroupId, finalStart, finalEnd, id))
-                throw new InvalidOperationException($"SUBJECT_CONFLICT|{finalStart:HH:mm}");
+            if (await HasConflicWithSubjectsFromTheSameCourse(finalGroupId, finalStart, finalEnd, id))
+                throw new InvalidOperationException($"SUBJECT_CONFLICT|{finalStart:dd/MM HH:mm}");
         }
 
         current.GroupId = finalGroupId;

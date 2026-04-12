@@ -291,7 +291,6 @@ public class AlgorithmsAppService : IAlgorithmsAppService
 
                 // --- 3. Marcar solicitud como Aplicada (Status 2) ---
                 r.Status = 2;
-                r.TeacherComment = "Cambio de grupo aplicado exitosamente.";
                 await _requestsService.UpdateAsync(r.Id, r);
             }
         }

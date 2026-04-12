@@ -206,34 +206,31 @@ public class SchedulesController : ControllerBase
     }
 
     private string FormatConflictMessage(string exceptionMessage)
+{
+    var parts = exceptionMessage.Split('|');
+    if (parts.Length < 2) return exceptionMessage;
+
+    var errorCode = parts[0];
+    
+    string FormatDateTime(string dt) => $"el día {dt.Split(' ')[0]} a las {dt.Split(' ')[1]}";
+
+    switch (errorCode)
     {
-        var parts = exceptionMessage.Split('|');
-        var errorCode = parts[0];
-        
-        if (errorCode == "LOCATION_OCCUPIED")
-        {
-            var time = parts.Length > 2 ? $" a las {parts[2]}" : "";
-            return $"El aula ya está ocupada{time}.";
-        }
+        case "LOCATION_OCCUPIED":
+            var locTime = parts.Length > 2 ? FormatDateTime(parts[2]) : "";
+            return $"El aula '{parts[1]}' ya está ocupada {locTime}.";
 
-        if (errorCode == "GROUP_OCCUPIED")
-        {
-            var time = parts.Length > 1 ? $" a las {parts[1]}" : "";
-            return $"El grupo seleccionado ya tiene otra sesión programada{time}.";
-        }
+        case "GROUP_OCCUPIED":
+            return $"El grupo seleccionado ya tiene otra sesión programada {FormatDateTime(parts[1])}.";
 
-        if (errorCode == "TEACHER_OCCUPIED")
-        {
-            var time = parts.Length > 1 ? $" a las {parts[1]}" : "";
-            return $"El profesor asignado a este grupo ya tiene otra clase programada en otro grupo{time}.";
-        }
+        case "TEACHER_OCCUPIED":
+            return $"El profesor ya tiene otra clase programada en otro grupo {FormatDateTime(parts[1])}.";
 
-        if (errorCode == "SUBJECT_CONFLICT")
-        {
-            var time = parts.Length > 1 ? $" a las {parts[1]}" : "";
-            return $"No se puede usar la fecha seleccionada ya que una asignatura del mismo curso tiene sesion{time}";
-        }
+        case "SUBJECT_CONFLICT":
+            return $"Conflicto de horario: otra asignatura del mismo curso tiene sesión {FormatDateTime(parts[1])}.";
 
-        return exceptionMessage;
+        default:
+            return exceptionMessage;
     }
+}
 }
