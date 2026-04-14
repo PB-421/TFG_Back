@@ -32,4 +32,7 @@ public class Request : BaseModel
 
     [Column("pdf_path")]
     public string? PdfPath {get; set;}
+
+    [Column("managed_by")]
+    public Guid? ManagedBy {get; set;}
 }

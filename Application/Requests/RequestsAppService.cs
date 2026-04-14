@@ -24,7 +24,8 @@ public class RequestsAppService : IRequestsAppService
             StudentComment = r.StudentComment,
             TeacherComment = r.TeacherComment,
             Status = r.Status,
-            PdfPath = r.PdfPath
+            PdfPath = r.PdfPath,
+            ManagedBy = r.ManagedBy
         }).ToList();
     }
 
@@ -42,7 +43,8 @@ public class RequestsAppService : IRequestsAppService
             StudentComment = r.StudentComment,
             TeacherComment = r.TeacherComment,
             Status = r.Status,
-            PdfPath = r.PdfPath
+            PdfPath = r.PdfPath,
+            ManagedBy = r.ManagedBy
         }).ToList();
     }
 
@@ -50,10 +52,10 @@ public class RequestsAppService : IRequestsAppService
     {
         var groups = await _groupsRepo.GetTeacherGroupsbyTeacherId(TeacherId);
         var groupIds = groups.Select(g => g.Id).ToList();
-        var response = await _client.From<Request>().Where(r => r.Status == 0).Get();
+        var response = await _client.From<Request>().Where(r => r.Status == 0 || r.Status == 3).Get();
 
         return response.Models
-        .Where(r => groupIds.Contains(r.OriginGroupId)) 
+        .Where(r => groupIds.Contains(r.OriginGroupId) || groupIds.Contains(r.DestinationGroupId)) 
         .Select(r => new RequestDto
         {
             Id = r.Id,
@@ -64,7 +66,8 @@ public class RequestsAppService : IRequestsAppService
             StudentComment = r.StudentComment,
             TeacherComment = r.TeacherComment,
             Status = r.Status,
-            PdfPath = r.PdfPath
+            PdfPath = r.PdfPath,
+            ManagedBy = r.ManagedBy
         }).ToList();
     }
 
@@ -88,7 +91,8 @@ public class RequestsAppService : IRequestsAppService
             StudentComment = result.StudentComment,
             TeacherComment = result.TeacherComment,
             Status = result.Status,
-            PdfPath = result.PdfPath
+            PdfPath = result.PdfPath,
+            ManagedBy = result.ManagedBy
         };
     }
 
@@ -121,7 +125,8 @@ public class RequestsAppService : IRequestsAppService
             StudentComment = request.StudentComment,
             TeacherComment = request.TeacherComment,
             Status = request.Status,
-            PdfPath = request.PdfPath
+            PdfPath = request.PdfPath,
+            ManagedBy = request.ManagedBy
         };
 
         await _client.From<Request>().Insert(newRequest);
@@ -145,6 +150,7 @@ public class RequestsAppService : IRequestsAppService
         if (current.Status != request.Status) { current.Status = request.Status; hasChanges = true; }
         if (current.TeacherComment != request.TeacherComment) { current.TeacherComment = request.TeacherComment; hasChanges = true; }
         if (current.Weight != request.Weight) { current.Weight = request.Weight; hasChanges = true; }
+        if (current.ManagedBy != request.ManagedBy) {current.ManagedBy = request.ManagedBy; hasChanges = true;}
 
         if (!hasChanges)
             return false;
@@ -169,6 +175,7 @@ public class RequestsAppService : IRequestsAppService
 
         if (current.Status != request.Status) { current.Status = request.Status ?? 0; hasChanges = true; }
         if (current.TeacherComment != request.TeacherComment) { current.TeacherComment = request.TeacherComment; hasChanges = true; }
+        if (current.ManagedBy != request.ManagedBy) {current.ManagedBy = request.ManagedBy; hasChanges = true;}
 
         if (!hasChanges)
             return false;
@@ -190,7 +197,8 @@ public class RequestsAppService : IRequestsAppService
                 StudentComment = current.StudentComment,
                 TeacherComment = current.TeacherComment,
                 Status = current.Status,
-                PdfPath = current.PdfPath
+                PdfPath = current.PdfPath,
+                ManagedBy = current.ManagedBy
             };
 
 

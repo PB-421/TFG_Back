@@ -9,4 +9,5 @@ public class RequestUpdateDto
     public string? TeacherComment { get; set; } = string.Empty;
     public int? Status { get; set; } = 0;
     public string? PdfPath {get; set;} = string.Empty;
+    public Guid? ManagedBy {get; set;} = Guid.Empty;
 }
