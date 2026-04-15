@@ -55,6 +55,18 @@ public class SchedulesAppService : ISchedulesAppService
         return dtoArray.ToList();
     }
 
+    public async Task<int> GetGroupCapacityByGroupId(Guid? groupId)
+    {
+        if (groupId == null || groupId == Guid.Empty) return 0;
+        var group = await _groupsService.GetById(groupId);
+        if (group == null) return 0; 
+        var size = group.Students?.Count ?? 0;
+        var groupLocations = await GetLocationsById(groupId);
+        if (groupLocations == null || !groupLocations.Any()) return 0;
+        var totalCapacity = await _locationService.GetLocationsCapacityByIds(groupLocations);
+        return totalCapacity - size;
+    }
+
     public async Task<bool> CreateAsync(SchedulesDto dto)
     {
         if (!dto.StartDate.HasValue || !dto.EndDate.HasValue || dto.Location?.Id == null || dto.Group?.Id == null)

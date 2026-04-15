@@ -81,6 +81,28 @@ public class SchedulesController : ControllerBase
         }
     }
 
+    [HttpGet("groupCapacity/{groupId}")]
+    public async Task<IActionResult> GetGroupCapacityByGroupId(Guid groupId)
+    {
+        try
+        {
+            var capacity = await _appService.GetGroupCapacityByGroupId(groupId);
+            return Ok(capacity);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
+    }
+
     [HttpGet("hasLocation/{locationId}")]
     public async Task<IActionResult> hasLocation(Guid locationId)
     {

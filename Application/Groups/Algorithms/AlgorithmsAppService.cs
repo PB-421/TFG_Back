@@ -1,3 +1,5 @@
+using Microsoft.IdentityModel.Tokens;
+
 public class AlgorithmsAppService : IAlgorithmsAppService
 {
     private readonly IProfilesAppService _usersService;
@@ -17,7 +19,7 @@ public class AlgorithmsAppService : IAlgorithmsAppService
 
     public async Task<(bool ok, string? error)> DistributeStudentsRoundRobinAsync(Guid? subjectId)
     {
-        if(subjectId == null) return (false, "Id no valido");
+        if(subjectId == null) return (false, "Id de asignatura no valido");
         var groups = (await _groupsService.GetAllAsync())
             .Where(g => g.SubjectId == subjectId)
             .ToList();
@@ -62,13 +64,14 @@ public class AlgorithmsAppService : IAlgorithmsAppService
         foreach (var group in groups)
         {
             var groupLocations = await _schedulesService.GetLocationsById(group.Id!.Value);
-            var totalCapacity = await _locationsService.GetLocationsCapacityByIds(groupLocations);
+            if(groupLocations.IsNullOrEmpty()) return (false, "El grupo "+group.Name+" no tiene horarios programados");
+            var totalCapacity = await _locationsService.GetLocationsCapacityByIds(groupLocations!);
             var used = group.Students?.Count ?? 0;
             freeCapacity[group.Id.Value] = Math.Max(0, totalCapacity - used);
         }
 
         if (freeCapacity.Values.Sum() < unassignedStudents.Count)
-            return (false, "No hay suficientes plazas para todos los alumnos");
+            return (false, "No hay suficientes plazas para todos los alumnos, la capacidad total de los grupos no es suficiente para agrupar a los "+unassignedStudents.Count+" estudiantes que todavia no tienen grupo");
 
         var groupBuckets = groups.ToDictionary(
             g => g.Id!.Value,
@@ -245,7 +248,7 @@ public class AlgorithmsAppService : IAlgorithmsAppService
 
             // Actualizamos el estado: 2 = Aceptada, 0 = sigue pendiente
             req.Status = accepted ? 2 : 0;
-            req.TeacherComment = accepted ? "Aceptada por optimización de cupos." : "Sin cupo disponible en esta iteración.";
+            req.TeacherComment = accepted ? "Aceptada por optimización de cupos." : String.Empty;
             
             await _requestsService.UpdateAsync(req.Id, req);
         }

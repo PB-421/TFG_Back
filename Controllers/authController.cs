@@ -18,68 +18,125 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] LoginDto request,[FromQuery] Guid adminId)
     {
-        var refreshToken = Request.Cookies["sb-refresh-token"];
-        if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
-            return Unauthorized();
-        var currentUser = new Profile();
-        if(!string.IsNullOrEmpty(refreshToken)){
-            currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
-        } else
-        {
-            currentUser = await _profileService.GetCurrentUserProfileAsync(adminId);
+        try{
+            var refreshToken = Request.Cookies["sb-refresh-token"];
+            if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
+                return Unauthorized();
+            var currentUser = new Profile();
+            if(!string.IsNullOrEmpty(refreshToken)){
+                currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
+            } else
+            {
+                currentUser = await _profileService.GetCurrentUserProfileAsync(adminId);
+            }
+
+            if (currentUser == null || currentUser.Role != "admin")
+                return Unauthorized("Usuario no autorizado");
+            
+            var (session, error) = await _authService.RegisterAsync(request);
+
+            if (error != null)
+                return BadRequest(error);
+
+            return Ok("Usuario registrado correctamente");
         }
-
-        if (currentUser == null || currentUser.Role != "admin")
-            return Unauthorized("Usuario no autorizado");
-        
-        var (session, error) = await _authService.RegisterAsync(request);
-
-        if (error != null)
-            return BadRequest(error);
-
-        return Ok("Usuario registrado correctamente");
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            try 
+            {
+                var errorData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.Nodes.JsonObject>(ex.Message);
+                var mensajeLimpio = errorData?["msg"]?.ToString() ?? "Error desconocido";
+                return BadRequest(new { error = mensajeLimpio });
+            }
+            catch 
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, "Ocurrió un error inesperado: "+ex);
+        }
     }
 
     // ---------------- LOGIN ----------------
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginDto request)
     {
-        var (session, profile, error) = await _authService.LoginAsync(request);
+        try{
+            var (session, profile, error) = await _authService.LoginAsync(request);
 
-        if (error != null)
-            return Unauthorized(error);
+            if (error != null)
+                return Unauthorized(error);
 
-        SetAuthCookies(session!);
+            SetAuthCookies(session!);
 
-        return Ok(new
+            return Ok(new
+            {
+                Message = $"Bienvenido {profile!.Name}",
+                profile.Name,
+                profile.Role
+            });
+        }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
         {
-            Message = $"Bienvenido {profile!.Name}",
-            profile.Name,
-            profile.Role
-        });
+            try 
+            {
+                var errorData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.Nodes.JsonObject>(ex.Message);
+                var mensajeLimpio = errorData?["msg"]?.ToString() ?? "Error desconocido";
+                return BadRequest(new { error = mensajeLimpio });
+            }
+            catch 
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, "Ocurrió un error inesperado: "+ex);
+        }
     }
 
     // ---------------- AUTO LOGIN ----------------
     [HttpGet("auto-login")]
     public async Task<IActionResult> AutoLogin()
     {
-        var refreshToken = Request.Cookies["sb-refresh-token"];
+        try{
+            var refreshToken = Request.Cookies["sb-refresh-token"];
 
-        var result = await _authService.RefreshSessionAsync(refreshToken!);
+            var result = await _authService.RefreshSessionAsync(refreshToken!);
 
-        if (result == null)
-            return Unauthorized("Sesión expirada");
+            if (result == null)
+                return Unauthorized("Sesión expirada");
 
-        var (accessToken, newRefreshToken, expiresIn, profile) = result.Value;
+            var (accessToken, newRefreshToken, expiresIn, profile) = result.Value;
 
-        SetAutoAuthCookies(accessToken, newRefreshToken, expiresIn);
+            SetAutoAuthCookies(accessToken, newRefreshToken, expiresIn);
 
-        return Ok(new
+            return Ok(new
+            {
+                Message = $"Hola de nuevo {profile!.Name}",
+                profile.Name,
+                profile.Role
+            });
+        }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
         {
-            Message = $"Hola de nuevo {profile!.Name}",
-            profile.Name,
-            profile.Role
-        });
+            try 
+            {
+                var errorData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.Nodes.JsonObject>(ex.Message);
+                var mensajeLimpio = errorData?["msg"]?.ToString() ?? "Error desconocido";
+                return BadRequest(new { error = mensajeLimpio });
+            }
+            catch 
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, "Ocurrió un error inesperado: "+ex);
+        }
     }
 
     // ---------------- OAUTH PROFILE ----------------
@@ -102,36 +159,74 @@ public class AuthController : ControllerBase
     [HttpGet("logout")]
     public async Task<IActionResult> Logout()
     {
-        await _authService.LogoutAsync();
+        try{
+            await _authService.LogoutAsync();
 
-        Response.Cookies.Delete("sb-access-token");
-        Response.Cookies.Delete("sb-refresh-token");
+            Response.Cookies.Delete("sb-access-token");
+            Response.Cookies.Delete("sb-refresh-token");
 
-        return Ok("Logout OK");
+            return Ok("Logout OK");
+        }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            try 
+            {
+                var errorData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.Nodes.JsonObject>(ex.Message);
+                var mensajeLimpio = errorData?["msg"]?.ToString() ?? "Error desconocido";
+                return BadRequest(new { error = mensajeLimpio });
+            }
+            catch 
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, "Ocurrió un error inesperado: "+ex);
+        }
     }
 
     [HttpDelete("delete/{id}")]
     public async Task<IActionResult> DeleteUser(Guid id, [FromQuery] Guid adminId)
     {
-        var refreshToken = Request.Cookies["sb-refresh-token"];
-        if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
-            return Unauthorized();
-        var currentUser = new Profile();
-        if(!string.IsNullOrEmpty(refreshToken)){
-            currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
-        } else
-        {
-            currentUser = await _profileService.GetCurrentUserProfileAsync(adminId);
+        try{
+            var refreshToken = Request.Cookies["sb-refresh-token"];
+            if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
+                return Unauthorized();
+            var currentUser = new Profile();
+            if(!string.IsNullOrEmpty(refreshToken)){
+                currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
+            } else
+            {
+                currentUser = await _profileService.GetCurrentUserProfileAsync(adminId);
+            }
+            if (currentUser == null || currentUser.Role != "admin")
+                return Unauthorized("Usuario no autorizado");
+
+            var result = await _authService.DeleteUserAsync(id);
+
+            if (!result)
+                return BadRequest("No se pudo eliminar el usuario");
+
+            return Ok("Usuario eliminado");
         }
-        if (currentUser == null || currentUser.Role != "admin")
-            return Unauthorized("Usuario no autorizado");
-
-        var result = await _authService.DeleteUserAsync(id);
-
-        if (!result)
-            return BadRequest("No se pudo eliminar el usuario");
-
-        return Ok("Usuario eliminado");
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            try 
+            {
+                var errorData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.Nodes.JsonObject>(ex.Message);
+                var mensajeLimpio = errorData?["msg"]?.ToString() ?? "Error desconocido";
+                return BadRequest(new { error = mensajeLimpio });
+            }
+            catch 
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, "Ocurrió un error inesperado: "+ex);
+        }
     }
 
     // ---------------- HELPERS ----------------

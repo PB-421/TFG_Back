@@ -33,8 +33,9 @@ public class GroupsAppService : IGroupsAppService
         return dtoArray.ToList();
     }
 
-    public async Task<GroupsDto> GetById(Guid id)
+    public async Task<GroupsDto> GetById(Guid? id)
     {
+        if(id == Guid.Empty || id == null) return new GroupsDto();
         var result = await _client
             .From<Group>()
             .Select("*")
@@ -46,7 +47,8 @@ public class GroupsAppService : IGroupsAppService
             Id = result.Id,
             SubjectId = result.SubjectId,
             Name = result.Name,
-            TeacherId = result.TeacherId
+            TeacherId = result.TeacherId,
+            Students = await GetProfilesByIdsAsync(result.Students.ToList())
         };
 
         return group;
