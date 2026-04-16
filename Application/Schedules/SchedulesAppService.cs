@@ -72,25 +72,28 @@ public class SchedulesAppService : ISchedulesAppService
         if (!dto.StartDate.HasValue || !dto.EndDate.HasValue || dto.Location?.Id == null || dto.Group?.Id == null)
             throw new ArgumentException("Datos incompletos para crear el horario.");
 
-        var locationOccupied = await IsLocationOccupiedAsync(dto.Location.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
+        var startUtc = dto.StartDate.Value.ToUniversalTime();
+        var endUtc = dto.EndDate.Value.ToUniversalTime();
+
+        var locationOccupied = await IsLocationOccupiedAsync(dto.Location.Id.Value, startUtc, endUtc);
         if (locationOccupied) throw new InvalidOperationException($"LOCATION_OCCUPIED|{dto.Location.Name}|{dto.StartDate:dd/MM HH:mm}");
 
 
-        var groupOccupied = await IsGroupOccupiedAsync(dto.Group.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
+        var groupOccupied = await IsGroupOccupiedAsync(dto.Group.Id.Value, startUtc, endUtc);
         if (groupOccupied) throw new InvalidOperationException($"GROUP_OCCUPIED|{dto.StartDate:dd/MM HH:mm}");
 
-        var teacherAvailable = await IsTeacherAvailable(dto.Group.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
+        var teacherAvailable = await IsTeacherAvailable(dto.Group.Id.Value, startUtc, endUtc);
         if (!teacherAvailable) throw new InvalidOperationException($"TEACHER_OCCUPIED|{dto.StartDate:dd/MM HH:mm}");
 
-        var subjectsConflic = await HasConflicWithSubjectsFromTheSameCourse(dto.Group.Id.Value, dto.StartDate.Value, dto.EndDate.Value);
+        var subjectsConflic = await HasConflicWithSubjectsFromTheSameCourse(dto.Group.Id.Value, startUtc, endUtc);
         if (subjectsConflic) throw new InvalidOperationException($"SUBJECT_CONFLICT|{dto.StartDate:dd/MM HH:mm}");
 
         var newSchedule = new Schedule
         {
             Id = dto.Id ?? Guid.NewGuid(),
             GroupId = dto.Group.Id.Value,
-            StartDate = dto.StartDate.Value,
-            EndDate = dto.EndDate.Value,
+            StartDate = startUtc,
+            EndDate = endUtc,
             LocationId = dto.Location.Id.Value
         };
 
@@ -101,21 +104,21 @@ public class SchedulesAppService : ISchedulesAppService
     public async Task<List<Guid>> GetLocationsById(Guid? groupId)
     {
         if(groupId == Guid.Empty || groupId == null) return new List<Guid>();
-        var locations = (await GetAllAsync())
-            .Where(g => g.Group!.Id == groupId)
-            .Select(g => g.Location!.Id!.Value)
-            .Distinct()
-            .ToList();
-
-        return locations;
+        var response = await _client
+        .From<Schedule>()
+        .Select("location_id")
+        .Where(s => s.GroupId == groupId)
+        .Get();
+        return response.Models.Select(s => s.LocationId).Distinct().ToList();
     }
 
     public async Task<bool> LocationInUse(Guid? LocationId)
     {
         if(LocationId == null || LocationId == Guid.Empty) return false;
+        var now = DateTime.UtcNow;
         var response = await _client
         .From<Schedule>()
-        .Where(s => s.LocationId == LocationId && s.EndDate > DateTime.Now)
+        .Where(s => s.LocationId == LocationId && s.EndDate > now)
         .Get();
 
         return response.Models.Any();
@@ -131,8 +134,11 @@ public class SchedulesAppService : ISchedulesAppService
 
         var finalLocationId = dto.Location?.Id ?? current.LocationId;
         var finalGroupId = dto.Group?.Id ?? current.GroupId;
-        var finalStart = dto.StartDate ?? current.StartDate;
-        var finalEnd = dto.EndDate ?? current.EndDate;
+        var Start = dto.StartDate ?? current.StartDate;
+        var End = dto.EndDate ?? current.EndDate;
+
+        var finalStart = Start.ToUniversalTime();
+        var finalEnd = End.ToUniversalTime();
 
         bool changed = (dto.StartDate != null && dto.StartDate != current.StartDate) || 
                     (dto.EndDate != null && dto.EndDate != current.EndDate) ||
@@ -178,31 +184,33 @@ public class SchedulesAppService : ISchedulesAppService
 
     public async Task<bool> IsLocationOccupiedAsync(Guid locationId, DateTime start, DateTime end, Guid? excludeId = null)
     {
+        var startUtc = DateTime.SpecifyKind(start, DateTimeKind.Utc).AddSeconds(1);
+        var endUtc = DateTime.SpecifyKind(end, DateTimeKind.Utc).AddSeconds(-1);
+
         var response = await _client
             .From<Schedule>()
             .Where(s => s.LocationId == locationId)
-            .Where(s => s.StartDate < end)
-            .Where(s => s.EndDate > start)
+            .Where(s => s.StartDate < endUtc)
+            .Where(s => s.EndDate > startUtc)
             .Get();
 
         var conflicts = response.Models;
-
-        // Si estamos editando, ignoramos el registro que estamos modificando
         if (excludeId.HasValue)
-        {
             conflicts = conflicts.Where(c => c.Id != excludeId.Value).ToList();
-        }
 
         return conflicts.Any();
     }
 
     public async Task<bool> IsGroupOccupiedAsync(Guid groupId, DateTime start, DateTime end, Guid? excludeId = null)
     {
+        var startUtc = DateTime.SpecifyKind(start, DateTimeKind.Utc).AddSeconds(1);
+        var endUtc = DateTime.SpecifyKind(end, DateTimeKind.Utc).AddSeconds(-1);
+
         var response = await _client
             .From<Schedule>()
             .Where(s => s.GroupId == groupId)
-            .Where(s => s.StartDate < end)
-            .Where(s => s.EndDate > start)
+            .Where(s => s.StartDate < endUtc)
+            .Where(s => s.EndDate > startUtc)
             .Get();
 
         var conflicts = response.Models;
@@ -218,6 +226,9 @@ public class SchedulesAppService : ISchedulesAppService
 
     public async Task<bool> IsTeacherAvailable(Guid groupId, DateTime start, DateTime end, Guid? excludeScheduleId = null)
     {
+        var startUtc = DateTime.SpecifyKind(start, DateTimeKind.Utc).AddSeconds(1);
+        var endUtc = DateTime.SpecifyKind(end, DateTimeKind.Utc).AddSeconds(-1);
+
         var response = await _groupsService.GetById(groupId);
         if(response == null) return false;
         var teacherGroups = await _groupsService.GetTeacherGroupsbyTeacherId(response.TeacherId);
@@ -227,8 +238,8 @@ public class SchedulesAppService : ISchedulesAppService
 
             var hasConflict = schedules.Any(s => 
                 s.Id != excludeScheduleId && 
-                s.StartDate < end && 
-                s.EndDate > start);
+                s.StartDate < endUtc && 
+                s.EndDate > startUtc);
 
             if (hasConflict)
             {
@@ -241,6 +252,9 @@ public class SchedulesAppService : ISchedulesAppService
 
     public async Task<bool> HasConflicWithSubjectsFromTheSameCourse(Guid groupId, DateTime start, DateTime end, Guid? excludeScheduleId = null)
     {
+        var startUtc = DateTime.SpecifyKind(start, DateTimeKind.Utc).AddSeconds(1);
+        var endUtc = DateTime.SpecifyKind(end, DateTimeKind.Utc).AddSeconds(-1);
+
         var response = await _groupsService.GetById(groupId);
         if(response == null) return false;
         var subjectGroups = await _groupsService.GetSameCourseGroups(response.SubjectId);
@@ -250,8 +264,8 @@ public class SchedulesAppService : ISchedulesAppService
 
             var hasConflict = schedules.Any(s => 
                 s.Id != excludeScheduleId && 
-                s.StartDate < end && 
-                s.EndDate > start);
+                s.StartDate < endUtc && 
+                s.EndDate > startUtc);
 
             if (hasConflict)
             {

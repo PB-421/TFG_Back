@@ -228,31 +228,30 @@ public class SchedulesController : ControllerBase
     }
 
     private string FormatConflictMessage(string exceptionMessage)
-{
-    var parts = exceptionMessage.Split('|');
-    if (parts.Length < 2) return exceptionMessage;
-
-    var errorCode = parts[0];
-    
-    string FormatDateTime(string dt) => $"el día {dt.Split(' ')[0]} a las {dt.Split(' ')[1]}";
-
-    switch (errorCode)
     {
-        case "LOCATION_OCCUPIED":
-            var locTime = parts.Length > 2 ? FormatDateTime(parts[2]) : "";
-            return $"El aula '{parts[1]}' ya está ocupada {locTime}.";
+        var parts = exceptionMessage.Split('|');
+        if (parts.Length < 2) return exceptionMessage;
 
-        case "GROUP_OCCUPIED":
-            return $"El grupo seleccionado ya tiene otra sesión programada {FormatDateTime(parts[1])}.";
+        var errorCode = parts[0];
+        
+        string FormatDateTime(string dt) => $"el día {dt.Split(' ')[0]} a las {dt.Split(' ')[1]}";
 
-        case "TEACHER_OCCUPIED":
-            return $"El profesor ya tiene otra clase programada en otro grupo {FormatDateTime(parts[1])}.";
+        switch (errorCode)
+        {
+            case "LOCATION_OCCUPIED":
+                return $"El aula ya está ocupada {FormatDateTime(parts[1])}.";
 
-        case "SUBJECT_CONFLICT":
-            return $"Conflicto de horario: otra asignatura del mismo curso tiene sesión {FormatDateTime(parts[1])}.";
+            case "GROUP_OCCUPIED":
+                return $"El grupo seleccionado ya tiene otra sesión programada {FormatDateTime(parts[1])}.";
 
-        default:
-            return exceptionMessage;
+            case "TEACHER_OCCUPIED":
+                return $"El profesor ya tiene otra clase programada en otro grupo {FormatDateTime(parts[1])}.";
+
+            case "SUBJECT_CONFLICT":
+                return $"Conflicto de horario: otra asignatura del mismo curso tiene sesión {FormatDateTime(parts[1])}.";
+
+            default:
+                return exceptionMessage;
+        }
     }
-}
 }
