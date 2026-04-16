@@ -62,7 +62,7 @@ builder.Services.AddCors(options =>
     {
         policy
             .WithOrigins(
-                "https://tfg-front-rho.vercel.app/" 
+                "https://tfg-front-rho.vercel.app" 
             ) 
             .AllowAnyHeader()
             .AllowAnyMethod()
