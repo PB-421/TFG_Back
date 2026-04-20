@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("api/algorithms")]
+[ApiKey]
 public class AlgorithmsController : ControllerBase
 {
     private readonly IAlgorithmsAppService _appService;

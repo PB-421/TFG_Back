@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("api/groups")]
+[ApiKey]
 public class GroupsController : ControllerBase
 {
     private readonly IGroupsAppService _appService;

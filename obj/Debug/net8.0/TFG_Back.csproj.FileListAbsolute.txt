@@ -51,3 +51,6 @@
 /home/pablo/Escritorio/Programacion/Cuarto Curso/TFG/TFG_Back/obj/Debug/net8.0/TFG_Back.genruntimeconfig.cache
 /home/pablo/Escritorio/Programacion/Cuarto Curso/TFG/TFG_Back/obj/Debug/net8.0/ref/TFG_Back.dll
 /home/pablo/Escritorio/Programacion/Cuarto Curso/TFG/TFG_Back/obj/Debug/net8.0/TFG_Back.sourcelink.json
+/home/pablo/Escritorio/Programacion/Cuarto Curso/TFG/TFG_Back/bin/Debug/net8.0/Microsoft.AspNetCore.Authentication.JwtBearer.dll
+/home/pablo/Escritorio/Programacion/Cuarto Curso/TFG/TFG_Back/bin/Debug/net8.0/Microsoft.IdentityModel.Protocols.dll
+/home/pablo/Escritorio/Programacion/Cuarto Curso/TFG/TFG_Back/bin/Debug/net8.0/Microsoft.IdentityModel.Protocols.OpenIdConnect.dll

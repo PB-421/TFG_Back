@@ -2,15 +2,14 @@ using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("api/subjects")]
+[ApiKey]
 public class SubjectsController : ControllerBase
 {
     private readonly ISubjectsAppService _subjectService;
-    private readonly IProfilesAppService _profileService;
 
-    public SubjectsController(ISubjectsAppService subjectService, IProfilesAppService profileService)
+    public SubjectsController(ISubjectsAppService subjectService)
     {
         _subjectService = subjectService;
-        _profileService = profileService;
     }
 
     [HttpGet]
@@ -67,27 +66,10 @@ public class SubjectsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] SubjectDto subject, [FromQuery] Guid adminId)
+    public async Task<IActionResult> Create([FromBody] SubjectDto subject)
     {
         try
         {
-            var refreshToken = Request.Cookies["sb-refresh-token"];
-            if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
-                return Unauthorized();
-
-            Profile currentUser;
-            if (!string.IsNullOrEmpty(refreshToken))
-            {
-                currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
-            }
-            else
-            {
-                currentUser = await _profileService.GetCurrentUserProfileAsync(adminId);
-            }
-
-            if (currentUser == null || currentUser.Role != "admin")
-                return Unauthorized("Usuario no autorizado");
-
             var createdSubject = await _subjectService.CreateAsync(subject);
             if (!createdSubject) return BadRequest("La asignatura ya existe");
 
@@ -112,23 +94,6 @@ public class SubjectsController : ControllerBase
     {
         try
         {
-            var refreshToken = Request.Cookies["sb-refresh-token"];
-            if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
-                return Unauthorized();
-
-            Profile currentUser;
-            if (!string.IsNullOrEmpty(refreshToken))
-            {
-                currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
-            }
-            else
-            {
-                currentUser = await _profileService.GetCurrentUserProfileAsync(adminId);
-            }
-
-            if (currentUser == null || currentUser.Role != "admin")
-                return Unauthorized("Usuario no autorizado");
-
             var updatedSubject = await _subjectService.UpdateAsync(id, subject);
             if (!updatedSubject) return BadRequest("La asignatura ya existe");
 
@@ -153,22 +118,6 @@ public class SubjectsController : ControllerBase
     {
         try
         {
-            var refreshToken = Request.Cookies["sb-refresh-token"];
-            if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
-                return Unauthorized();
-
-            Profile currentUser;
-            if (!string.IsNullOrEmpty(refreshToken))
-            {
-                currentUser = await _profileService.GetCurrentUserProfileAsync(refreshToken);
-            }
-            else
-            {
-                currentUser = await _profileService.GetCurrentUserProfileAsync(adminId);
-            }
-
-            if (currentUser == null || currentUser.Role != "admin")
-                return Unauthorized("Usuario no autorizado");
 
             var deletedSubject = await _subjectService.DeleteAsync(id);
             if (!deletedSubject) return BadRequest("Error al borrar la asignatura");

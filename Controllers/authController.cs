@@ -252,8 +252,8 @@ public class AuthController : ControllerBase
             new CookieOptions
             {
                 HttpOnly = true,
-                Secure = false,
-                SameSite = SameSiteMode.Lax,
+                Secure = true,
+                SameSite = SameSiteMode.None,
                 Expires = refreshExp
             });
     }
@@ -269,8 +269,8 @@ public class AuthController : ControllerBase
             new CookieOptions
             {
                 HttpOnly = true,
-                Secure = false,
-                SameSite = SameSiteMode.Lax, //Cambiar a None y true en prod
+                Secure = true,
+                SameSite = SameSiteMode.None, //Cambiar a None y true en prod
                 Expires = accessExp
             });
 
