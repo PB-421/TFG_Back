@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("api/schedules")]
+[ApiKey]
 public class SchedulesController : ControllerBase
 {
     private readonly ISchedulesAppService _appService;

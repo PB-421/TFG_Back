@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("api/control")]
+[ApiKey]
 public class ControlController : ControllerBase
 {
     private readonly IControlAppService _appService;

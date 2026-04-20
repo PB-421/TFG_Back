@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("api/requests")]
+[ApiKey]
 public class RequestsController : ControllerBase
 {
     private readonly IRequestsAppService _appService;

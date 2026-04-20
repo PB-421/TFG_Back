@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("api/locations")]
+[ApiKey]
 public class LocationsController : ControllerBase
 {
     private readonly ILocationsAppService _appService;
