@@ -131,7 +131,7 @@ public class ProfilesController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetProfileById(Guid id) //admin y teacher admitidos
+    public async Task<IActionResult> GetProfileById(Guid id)
     {
         try
         {
