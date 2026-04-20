@@ -35,9 +35,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
-            // La JWT Secret la sacas de la config de API de Supabase
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET")!)),
-            ValidateIssuer = false, // Supabase no siempre envía un Issuer estándar
+            ValidateIssuer = false,
             ValidateAudience = true,
             ValidAudience = "authenticated"
         };
