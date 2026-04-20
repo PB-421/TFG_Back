@@ -155,8 +155,8 @@ public class ProfilesController : ControllerBase
         }
     }
 
-    [HttpPut("UpdateUserSubjects/{id}")]
-    public async Task<IActionResult> UpdateUserSubjects(Guid id, [FromBody] List<Guid> newSubjectsIds, [FromQuery] Guid userId)
+    [HttpPut("UpdateUserSubjects")]
+    public async Task<IActionResult> UpdateUserSubjects([FromBody] List<Guid> newSubjectsIds, [FromQuery] Guid userId)
     {
         try
         {

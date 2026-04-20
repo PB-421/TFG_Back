@@ -1,8 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Extensions.DependencyInjection;
-using Supabase;
-using System.Security.Claims;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class ApiKeyAttribute : Attribute, IAsyncActionFilter
@@ -15,25 +12,9 @@ public class ApiKeyAttribute : Attribute, IAsyncActionFilter
     var httpContext = context.HttpContext;
     var services = httpContext.RequestServices;
     var profilesService = services.GetRequiredService<IProfilesAppService>();
-    var supabase = services.GetRequiredService<Client>();
 
-    // 1. EXTRAER TOKEN Y COOKIE
     string? authHeader = httpContext.Request.Headers["Authorization"];
     string? refreshToken = httpContext.Request.Cookies[RefreshTokenCookieName];
-
-    // 2. SI HAY BEARER TOKEN, INICIALIZAR SESIÓN EN BACKEND
-    if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
-    {   
-        var token = authHeader.Substring("Bearer ".Length).Trim();
-        try 
-        {
-            await supabase.Auth.SetSession(token, refreshToken ?? ""); 
-        }
-        catch { /* Token inválido o expirado */ }
-    }
-
-    // --- FLUJO DE VALIDACIÓN (En orden de prioridad) ---
-
     // A. Intento por API KEY (Para procesos automáticos/Cron)
     if (httpContext.Request.Headers.TryGetValue(ApiKeyHeaderName, out var extractedApiKey))
     {
@@ -45,7 +26,7 @@ public class ApiKeyAttribute : Attribute, IAsyncActionFilter
         }
     }
 
-    // B. Intento por REFRESH TOKEN (Cookie) - Como respaldo
+    // B. Intento por REFRESH TOKEN (Cookie)
     if (!string.IsNullOrEmpty(refreshToken))
     {
         var profile = await profilesService.GetCurrentUserProfileAsync(refreshToken);
@@ -57,11 +38,10 @@ public class ApiKeyAttribute : Attribute, IAsyncActionFilter
         }
     }
 
-    // C. Intento por USUARIO DE SUPABASE (Bearer Token o Sesión activa)
-    var supabaseUser = supabase.Auth.CurrentUser;
-    if (supabaseUser != null && !string.IsNullOrEmpty(supabaseUser.Id))
+    // C. Intento por USUARIO DE SUPABASE
+    if (!string.IsNullOrEmpty(authHeader))
     {
-        var profile = await profilesService.GetCurrentUserProfileAsync(Guid.Parse(supabaseUser.Id));
+        var profile = await profilesService.GetCurrentUserProfileAsync(Guid.Parse(authHeader));
         if (profile != null)
         {
             httpContext.Items["UserProfile"] = profile; // Guardamos para el controller
