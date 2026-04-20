@@ -6,12 +6,10 @@ using Microsoft.AspNetCore.Mvc;
 public class SubjectsController : ControllerBase
 {
     private readonly ISubjectsAppService _subjectService;
-    private readonly IProfilesAppService _profileService;
 
-    public SubjectsController(ISubjectsAppService subjectService, IProfilesAppService profileService)
+    public SubjectsController(ISubjectsAppService subjectService)
     {
         _subjectService = subjectService;
-        _profileService = profileService;
     }
 
     [HttpGet]
