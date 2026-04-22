@@ -1,5 +1,4 @@
 # TFG_Back
-[![Ask DeepWiki](https://devin.ai/assets/askdeepwiki.png)](https://deepwiki.com/PB-421/TFG_Back)
 
 This repository contains the backend service for a university management application, developed as a Final Degree Project (TFG). It is built with .NET 8 and ASP.NET Core, utilizing Supabase for database, authentication, and file storage. The system is designed to manage students, teachers, subjects, groups, and academic schedules, with a focus on automating the process of group assignments and handling student change requests.
 
@@ -114,5 +113,14 @@ The repository includes a `Dockerfile` for containerizing the application. It is
       -e CRON_SECRET_KEY="<your-secure-random-string>" \
       --name tfg-back-container tfg_back
     ```
+
+## ⚖️ License Information
+
+This project is licensed under the **MIT License**.
+
+You are free to use, modify, and distribute this software, provided that the
+original copyright notice and this permission notice are included.
+
+For more details, see the `LICENSE` file in this repository.
 
 The application will be accessible at `http://localhost:8080`.
