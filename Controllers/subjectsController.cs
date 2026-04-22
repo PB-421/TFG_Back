@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 [ApiController]
 [Route("api/subjects")]
@@ -28,6 +30,10 @@ public class SubjectsController : ControllerBase
 
             return Ok(dtoList);
         }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
+        }
         catch (UnauthorizedAccessException ex)
         {
             return Forbid(ex.Message);
@@ -50,6 +56,10 @@ public class SubjectsController : ControllerBase
             var subjects = await _subjectService.GetSubjectNamesByIds(new List<Guid> { id });
             if (subjects == null || subjects.Count == 0) return NotFound("Asignatura no encontrada");
             return Ok(subjects[0].Name);
+        }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -75,6 +85,10 @@ public class SubjectsController : ControllerBase
 
             return Ok("Asignatura creada");
         }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
+        }
         catch (UnauthorizedAccessException ex)
         {
             return Forbid(ex.Message);
@@ -98,6 +112,10 @@ public class SubjectsController : ControllerBase
             if (!updatedSubject) return BadRequest("La asignatura ya existe");
 
             return Ok("Asignatura actualizada");
+        }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -124,6 +142,10 @@ public class SubjectsController : ControllerBase
 
             return Ok("Asignatura borrada");
         }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
+        }
         catch (UnauthorizedAccessException ex)
         {
             return Forbid(ex.Message);
@@ -136,5 +158,45 @@ public class SubjectsController : ControllerBase
         {
             return StatusCode(500, $"Error interno: {ex.Message}");
         }
+    }
+
+    private string ExtractSupabaseMessage(Supabase.Gotrue.Exceptions.GotrueException ex)
+    {
+        if (ex == null || string.IsNullOrEmpty(ex.Message))
+            return "Error desconocido de Supabase";
+
+        try
+        {
+            var json = JsonSerializer.Deserialize<JsonObject>(ex.Message);
+            if (json != null)
+            {
+                var msg = json["msg"]?.ToString();
+                if (!string.IsNullOrEmpty(msg)) return msg;
+
+                var error = json["error"]?.ToString();
+                if (!string.IsNullOrEmpty(error)) return error;
+
+                var description = json["error_description"]?.ToString();
+                if (!string.IsNullOrEmpty(description)) return description;
+
+                var messageField = json["message"]?.ToString();
+                if (!string.IsNullOrEmpty(messageField)) return messageField;
+
+                return json.ToString();
+            }
+
+            return ex.Message;
+        }
+        catch
+        {
+            return ex.Message;
+        }
+    }
+
+    private IActionResult SupabaseErrorResponse(Supabase.Gotrue.Exceptions.GotrueException ex, int statusCode = 400)
+    {
+        var mensaje = ExtractSupabaseMessage(ex);
+        var payload = new { error = mensaje };
+        return StatusCode(statusCode, payload);
     }
 }

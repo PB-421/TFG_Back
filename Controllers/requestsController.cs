@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 [ApiController]
 [Route("api/requests")]
@@ -19,6 +21,10 @@ public class RequestsController : ControllerBase
         {
             var requests = await _appService.GetAllAsync();
             return Ok(requests);
+        }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -42,6 +48,10 @@ public class RequestsController : ControllerBase
             var requests = await _appService.GetByStudentId(studentId);
             return Ok(requests);
         }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
+        }
         catch (Exception ex)
         {
             return StatusCode(500, $"Error al obtener peticiones: {ex.Message}");
@@ -55,6 +65,10 @@ public class RequestsController : ControllerBase
         {
             var requests = await _appService.GetByTeacherId(teacherId);
             return Ok(requests);
+        }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (Exception ex)
         {
@@ -72,6 +86,10 @@ public class RequestsController : ControllerBase
                 return NotFound("Solicitud no encontrada");
                 
             return Ok(request);
+        }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -99,6 +117,10 @@ public class RequestsController : ControllerBase
 
             return Ok("Solicitud creada con éxito");
         }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
+        }
         catch (UnauthorizedAccessException ex)
         {
             return Forbid(ex.Message);
@@ -124,6 +146,10 @@ public class RequestsController : ControllerBase
             if (!success) return NotFound("No se encontró la solicitud o no hubo cambios para actualizar");
 
             return Ok("Solicitud actualizada");
+        }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -151,6 +177,10 @@ public class RequestsController : ControllerBase
 
             return Ok("Solicitud actualizada");
         }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
+        }
         catch (UnauthorizedAccessException ex)
         {
             return Forbid(ex.Message);
@@ -172,6 +202,10 @@ public class RequestsController : ControllerBase
         {
             var success = await _appService.DeleteAsync(id);
             return success ? Ok("Solicitud borrada") : NotFound("Solicitud no encontrada");
+        }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -195,6 +229,10 @@ public class RequestsController : ControllerBase
             await _appService.DeleteCompletedRequest();
             return Ok("Las solicitudes completadas se han borrado correctamente");
         }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
+        }
         catch (UnauthorizedAccessException ex)
         {
             return Forbid(ex.Message);
@@ -207,5 +245,45 @@ public class RequestsController : ControllerBase
         {
             return StatusCode(500, $"Error interno: {ex.Message}");
         }
+    }
+
+    private string ExtractSupabaseMessage(Supabase.Gotrue.Exceptions.GotrueException ex)
+    {
+        if (ex == null || string.IsNullOrEmpty(ex.Message))
+            return "Error desconocido de Supabase";
+
+        try
+        {
+            var json = JsonSerializer.Deserialize<JsonObject>(ex.Message);
+            if (json != null)
+            {
+                var msg = json["msg"]?.ToString();
+                if (!string.IsNullOrEmpty(msg)) return msg;
+
+                var error = json["error"]?.ToString();
+                if (!string.IsNullOrEmpty(error)) return error;
+
+                var description = json["error_description"]?.ToString();
+                if (!string.IsNullOrEmpty(description)) return description;
+
+                var messageField = json["message"]?.ToString();
+                if (!string.IsNullOrEmpty(messageField)) return messageField;
+
+                return json.ToString();
+            }
+
+            return ex.Message;
+        }
+        catch
+        {
+            return ex.Message;
+        }
+    }
+
+    private IActionResult SupabaseErrorResponse(Supabase.Gotrue.Exceptions.GotrueException ex, int statusCode = 400)
+    {
+        var mensaje = ExtractSupabaseMessage(ex);
+        var payload = new { error = mensaje };
+        return StatusCode(statusCode, payload);
     }
 }

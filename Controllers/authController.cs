@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 [ApiController]
 [Route("api/auth")]
@@ -42,16 +44,7 @@ public class AuthController : ControllerBase
         }
         catch (Supabase.Gotrue.Exceptions.GotrueException ex)
         {
-            try 
-            {
-                var errorData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.Nodes.JsonObject>(ex.Message);
-                var mensajeLimpio = errorData?["msg"]?.ToString() ?? "Error desconocido";
-                return BadRequest(new { error = mensajeLimpio });
-            }
-            catch 
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (Exception ex)
         {
@@ -80,16 +73,7 @@ public class AuthController : ControllerBase
         }
         catch (Supabase.Gotrue.Exceptions.GotrueException ex)
         {
-            try 
-            {
-                var errorData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.Nodes.JsonObject>(ex.Message);
-                var mensajeLimpio = errorData?["msg"]?.ToString() ?? "Error desconocido";
-                return BadRequest(new { error = mensajeLimpio });
-            }
-            catch 
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (Exception ex)
         {
@@ -122,16 +106,7 @@ public class AuthController : ControllerBase
         }
         catch (Supabase.Gotrue.Exceptions.GotrueException ex)
         {
-            try 
-            {
-                var errorData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.Nodes.JsonObject>(ex.Message);
-                var mensajeLimpio = errorData?["msg"]?.ToString() ?? "Error desconocido";
-                return BadRequest(new { error = mensajeLimpio });
-            }
-            catch 
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (Exception ex)
         {
@@ -169,16 +144,7 @@ public class AuthController : ControllerBase
         }
         catch (Supabase.Gotrue.Exceptions.GotrueException ex)
         {
-            try 
-            {
-                var errorData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.Nodes.JsonObject>(ex.Message);
-                var mensajeLimpio = errorData?["msg"]?.ToString() ?? "Error desconocido";
-                return BadRequest(new { error = mensajeLimpio });
-            }
-            catch 
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (Exception ex)
         {
@@ -212,16 +178,7 @@ public class AuthController : ControllerBase
         }
         catch (Supabase.Gotrue.Exceptions.GotrueException ex)
         {
-            try 
-            {
-                var errorData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.Nodes.JsonObject>(ex.Message);
-                var mensajeLimpio = errorData?["msg"]?.ToString() ?? "Error desconocido";
-                return BadRequest(new { error = mensajeLimpio });
-            }
-            catch 
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (Exception ex)
         {
@@ -241,8 +198,8 @@ public class AuthController : ControllerBase
             new CookieOptions
             {
                 HttpOnly = true,
-                Secure = false,
-                SameSite = SameSiteMode.Lax,
+                Secure = true,
+                SameSite = SameSiteMode.None,
                 Expires = accessExp
             });
 
@@ -280,10 +237,50 @@ public class AuthController : ControllerBase
             new CookieOptions
             {
                 HttpOnly = true,
-                Secure = false,
-                SameSite = SameSiteMode.Lax,
+                Secure = true,
+                SameSite = SameSiteMode.None,
                 Expires = refreshExp
             });
+    }
+
+    private string ExtractSupabaseMessage(Supabase.Gotrue.Exceptions.GotrueException ex)
+    {
+        if (ex == null || string.IsNullOrEmpty(ex.Message))
+            return "Error desconocido de Supabase";
+
+        try
+        {
+            var json = JsonSerializer.Deserialize<JsonObject>(ex.Message);
+            if (json != null)
+            {
+                var msg = json["msg"]?.ToString();
+                if (!string.IsNullOrEmpty(msg)) return msg;
+
+                var error = json["error"]?.ToString();
+                if (!string.IsNullOrEmpty(error)) return error;
+
+                var description = json["error_description"]?.ToString();
+                if (!string.IsNullOrEmpty(description)) return description;
+
+                var messageField = json["message"]?.ToString();
+                if (!string.IsNullOrEmpty(messageField)) return messageField;
+
+                return json.ToString();
+            }
+
+            return ex.Message;
+        }
+        catch
+        {
+            return ex.Message;
+        }
+    }
+
+    private IActionResult SupabaseErrorResponse(Supabase.Gotrue.Exceptions.GotrueException ex, int statusCode = 400)
+    {
+        var mensaje = ExtractSupabaseMessage(ex);
+        var payload = new { error = mensaje };
+        return StatusCode(statusCode, payload);
     }
 
 }

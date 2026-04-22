@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 [ApiController]
 [Route("api/schedules")]
@@ -21,6 +23,10 @@ public class SchedulesController : ControllerBase
         {
             var schedules = await _appService.GetAllAsync();
             return Ok(schedules);
+        }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -46,6 +52,10 @@ public class SchedulesController : ControllerBase
             if (schedule == null) return NotFound("Horario no encontrado");
             return Ok(schedule);
         }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
+        }
         catch (UnauthorizedAccessException ex)
         {
             return Forbid(ex.Message);
@@ -67,6 +77,10 @@ public class SchedulesController : ControllerBase
         {
             var schedules = await _appService.GetSchedulesByGroupIdAsync(groupId);
             return Ok(schedules);
+        }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -90,6 +104,10 @@ public class SchedulesController : ControllerBase
             var capacity = await _appService.GetGroupCapacityByGroupId(groupId);
             return Ok(capacity);
         }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
+        }
         catch (UnauthorizedAccessException ex)
         {
             return Forbid(ex.Message);
@@ -111,6 +129,10 @@ public class SchedulesController : ControllerBase
         {
             var exists = await _appService.LocationInUse(locationId);
             return Ok(exists);
+        }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -140,6 +162,10 @@ public class SchedulesController : ControllerBase
 
             return Ok("Sesion creada correctamente");
         }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
+        }
         catch (InvalidOperationException ex)
         {
             return BadRequest(FormatConflictMessage(ex.Message));
@@ -160,6 +186,10 @@ public class SchedulesController : ControllerBase
             await _appService.UpdateAsync(id, dto);
 
             return Ok("Sesion actualizada");
+        }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (InvalidOperationException ex)
         {
@@ -188,6 +218,10 @@ public class SchedulesController : ControllerBase
             if (!success) return NotFound("Sesion no encontrada");
             return Ok("Sesion borrada correctamente");
         }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
+        }
         catch (UnauthorizedAccessException ex)
         {
             return Forbid(ex.Message);
@@ -213,6 +247,10 @@ public class SchedulesController : ControllerBase
 
             var capacity = await _locationService.GetLocationsCapacityByIds(groupLocations);
             return Ok(new { GroupId = groupId, Capacity = capacity });
+        }
+        catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+        {
+            return SupabaseErrorResponse(ex, 400);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -254,5 +292,45 @@ public class SchedulesController : ControllerBase
             default:
                 return exceptionMessage;
         }
+    }
+
+    private string ExtractSupabaseMessage(Supabase.Gotrue.Exceptions.GotrueException ex)
+    {
+        if (ex == null || string.IsNullOrEmpty(ex.Message))
+            return "Error desconocido de Supabase";
+
+        try
+        {
+            var json = JsonSerializer.Deserialize<JsonObject>(ex.Message);
+            if (json != null)
+            {
+                var msg = json["msg"]?.ToString();
+                if (!string.IsNullOrEmpty(msg)) return msg;
+
+                var error = json["error"]?.ToString();
+                if (!string.IsNullOrEmpty(error)) return error;
+
+                var description = json["error_description"]?.ToString();
+                if (!string.IsNullOrEmpty(description)) return description;
+
+                var messageField = json["message"]?.ToString();
+                if (!string.IsNullOrEmpty(messageField)) return messageField;
+
+                return json.ToString();
+            }
+
+            return ex.Message;
+        }
+        catch
+        {
+            return ex.Message;
+        }
+    }
+
+    private IActionResult SupabaseErrorResponse(Supabase.Gotrue.Exceptions.GotrueException ex, int statusCode = 400)
+    {
+        var mensaje = ExtractSupabaseMessage(ex);
+        var payload = new { error = mensaje };
+        return StatusCode(statusCode, payload);
     }
 }
