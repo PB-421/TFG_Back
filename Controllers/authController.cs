@@ -135,10 +135,20 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Logout()
     {
         try{
+            var refreshToken = Request.Cookies["sb-refresh-token"];
+
+            var result = await _authService.RefreshSessionAsync(refreshToken!);
+
+            if (result == null)
+                return Unauthorized("Sesión expirada");
+
+            var (accessToken, newRefreshToken, expiresIn, profile) = result.Value;
+
             await _authService.LogoutAsync();
 
             Response.Cookies.Delete("sb-access-token");
             Response.Cookies.Delete("sb-refresh-token");
+            DeleteCookies(accessToken,refreshToken!);
 
             return Ok("Logout OK");
         }
@@ -194,7 +204,7 @@ public class AuthController : ControllerBase
 
         Response.Cookies.Append(
             "sb-access-token",
-            session.AccessToken!,   // <-- añadimos fecha
+            session.AccessToken!,   
             new CookieOptions
             {
                 HttpOnly = true,
@@ -227,7 +237,35 @@ public class AuthController : ControllerBase
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.None, //Cambiar a None y true en prod
+                SameSite = SameSiteMode.None,
+                Expires = accessExp
+            });
+
+        Response.Cookies.Append(
+            "sb-refresh-token",
+            refreshToken,
+            new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Expires = refreshExp
+            });
+    }
+
+    private void DeleteCookies(string accessToken, string refreshToken)
+    {
+        var accessExp = DateTimeOffset.UtcNow.AddDays(-1);
+        var refreshExp = DateTimeOffset.UtcNow.AddDays(-1);
+
+        Response.Cookies.Append(
+            "sb-access-token",
+            accessToken,
+            new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
                 Expires = accessExp
             });
 
