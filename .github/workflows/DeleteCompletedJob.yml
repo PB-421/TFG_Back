@@ -12,5 +12,5 @@ jobs:
     steps:
       - name: Call_API_with_API_KEY
         run: |
-          curl --fail "${{ secrets.API_URL }}/api/requests/completed" \
+          curl --fail -X DELETE "${{ secrets.API_URL }}/api/requests/completed" \
                -H "X-API-KEY: ${{ secrets.CRON_SECRET_KEY }}"
