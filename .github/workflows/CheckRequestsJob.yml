@@ -1,0 +1,16 @@
+name: Check_Requests_Job
+
+on:
+  schedule:
+    - cron: '0 */6 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  call-api:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call_API_with_API_KEY
+        run: |
+          curl --fail "${{ secrets.API_URL }}/api/algorithms/CheckRequests" \
+               -H "X-API-KEY: ${{ secrets.CRON_SECRET_KEY }}"
