@@ -44,9 +44,9 @@ public class LocationsAppService : ILocationsAppService
         {
             if (location == Guid.Empty) continue;
 
-            LocationDto locationCapacity = await GetLocationById(location);
+            LocationDto locationDetails = await GetLocationById(location);
 
-            int capacity = locationCapacity.Capacity ?? 0;
+            int capacity = locationDetails.Capacity ?? 0;
 
             if (totalCapacity == 0 || capacity <= totalCapacity)
             {

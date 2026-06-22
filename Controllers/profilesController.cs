@@ -16,12 +16,13 @@ public class ProfilesController : ControllerBase
     }
 
     [HttpGet("GetAll")]
-    public async Task<IActionResult> GetAll([FromQuery] Guid adminId)
+    public async Task<IActionResult> GetAll()
     {
         try
         {
             var refreshToken = Request.Cookies["sb-refresh-token"];
-            if (string.IsNullOrEmpty(refreshToken) && adminId == Guid.Empty)
+            var adminId = Request.Headers.Authorization.FirstOrDefault();
+            if (string.IsNullOrEmpty(refreshToken) && string.IsNullOrEmpty(adminId))
                 return Unauthorized();
 
             var profiles = new List<Profile>();

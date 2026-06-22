@@ -61,16 +61,18 @@ public class AlgorithmsAppService : IAlgorithmsAppService
             return (true, null);
 
         var freeCapacity = new Dictionary<Guid, int>();
+        var totalCapacity = 0;
         foreach (var group in groups)
         {
             var groupLocations = await _schedulesService.GetLocationsById(group.Id!.Value);
             if(groupLocations.IsNullOrEmpty()) return (false, "El grupo "+group.Name+" no tiene horarios programados");
-            var totalCapacity = await _locationsService.GetLocationsCapacityByIds(groupLocations!);
+            var groupCapacity = await _locationsService.GetLocationsCapacityByIds(groupLocations!);
+            totalCapacity = totalCapacity + groupCapacity;
             var used = group.Students?.Count ?? 0;
-            freeCapacity[group.Id.Value] = Math.Max(0, totalCapacity - used);
+            freeCapacity[group.Id.Value] = Math.Max(0, groupCapacity - used);
         }
-
-        if (freeCapacity.Values.Sum() < unassignedStudents.Count)
+        
+        if (totalCapacity < unassignedStudents.Count)
             return (false, "No hay suficientes plazas para todos los alumnos, la capacidad total de los grupos no es suficiente para agrupar a los "+unassignedStudents.Count+" estudiantes que todavia no tienen grupo");
 
         var groupBuckets = groups.ToDictionary(
