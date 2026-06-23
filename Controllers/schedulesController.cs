@@ -275,40 +275,44 @@ public class SchedulesController : ControllerBase
     }
 
     private string FormatConflictMessage(string exceptionMessage)
-{
-    var parts = exceptionMessage.Split('|');
-    if (parts.Length < 2) return exceptionMessage;
-
-    var errorCode = parts[0];
-    var rawDate = parts[1];
-    
-    string FormatDateTime(string dt) 
     {
-        if (DateTime.TryParse(dt, out DateTime parsedDate))
+        var parts = exceptionMessage.Split('|');
+        if (parts.Length < 2) return exceptionMessage;
+
+        var errorCode = parts[0];
+        
+        var rawDate = parts.Length == 3 ? parts[2] : parts[1];
+        var locationName = parts.Length == 3 ? parts[1] : string.Empty;
+        
+        string FormatDateTime(string dt) 
         {
-            return $"el día {parsedDate.ToString("dd/MM/yyyy")} a las {parsedDate.ToString("HH:mm")}";
+            if (DateTime.TryParse(dt, out DateTime parsedDate))
+            {
+                return $"el día {parsedDate.ToString("dd/MM/yyyy")} a las {parsedDate.ToString("HH:mm")}";
+            }
+            
+            return $"el día {dt.Replace(" ", " a las ")}"; 
         }
-        return dt; 
+
+        switch (errorCode)
+        {
+            case "LOCATION_OCCUPIED":
+                var aulaStr = string.IsNullOrEmpty(locationName) ? "El aula" : $"El aula '{locationName}'";
+                return $"{aulaStr} ya está ocupada {FormatDateTime(rawDate)}.";
+
+            case "GROUP_OCCUPIED":
+                return $"El grupo seleccionado ya tiene otra sesión programada {FormatDateTime(rawDate)}.";
+
+            case "TEACHER_OCCUPIED":
+                return $"El profesor ya tiene otra clase programada en otro grupo {FormatDateTime(rawDate)}.";
+
+            case "SUBJECT_CONFLICT":
+                return $"Conflicto de horario: otra asignatura del mismo curso tiene sesión {FormatDateTime(rawDate)}.";
+
+            default:
+                return exceptionMessage;
+        }
     }
-
-    switch (errorCode)
-    {
-        case "LOCATION_OCCUPIED":
-            return $"El aula ya está ocupada {FormatDateTime(rawDate)}.";
-
-        case "GROUP_OCCUPIED":
-            return $"El grupo seleccionado ya tiene otra sesión programada {FormatDateTime(rawDate)}.";
-
-        case "TEACHER_OCCUPIED":
-            return $"El profesor ya tiene otra clase programada en otro grupo {FormatDateTime(rawDate)}.";
-
-        case "SUBJECT_CONFLICT":
-            return $"Conflicto de horario: otra asignatura del mismo curso tiene sesión {FormatDateTime(rawDate)}.";
-
-        default:
-            return exceptionMessage;
-    }
-}
 
     private string ExtractSupabaseMessage(Supabase.Gotrue.Exceptions.GotrueException ex)
     {
